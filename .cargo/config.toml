@@ -1,0 +1,5 @@
+[env]
+# SMAppService (used for the "Launch at login" toggle) is only available
+# on macOS 13 and up. Pin the deployment target so the linker accepts the
+# symbol and `register/unregister` do not return kSMErrorToolNotValid.
+MACOSX_DEPLOYMENT_TARGET = "13.0"
