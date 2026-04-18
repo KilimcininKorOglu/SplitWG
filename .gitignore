@@ -8,6 +8,7 @@ splitwg-amd64
 splitwg-arm64
 *.dmg
 .DS_Store
+release_keys.md
 
 # homebrew-tap is a separate repository (KilimcininKorOglu/homebrew-tap)
 /homebrew-tap/
