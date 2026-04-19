@@ -191,6 +191,48 @@ The JSON examples below show the underlying format for reference. In practice, t
 }
 ```
 
+**Route only Cloudflare and Google traffic through the tunnel (by ASN):**
+
+```json
+{
+  "mode": "include",
+  "entries": [
+    "asn:13335",
+    "asn:15169"
+  ],
+  "hooks_enabled": false
+}
+```
+
+**Bypass CDN providers for direct low-latency access:**
+
+```json
+{
+  "mode": "exclude",
+  "entries": [
+    "asn:13335",
+    "asn:20940",
+    "asn:16509"
+  ],
+  "hooks_enabled": false
+}
+```
+
+**Route specific services by domain and wildcard:**
+
+```json
+{
+  "mode": "include",
+  "entries": [
+    "api.openai.com",
+    "*.anthropic.com",
+    "huggingface.co",
+    "*.hf.co"
+  ],
+  "hooks_enabled": false
+}
+```
+
 **Block ads and trackers by domain while tunneled:**
 
 ```json
@@ -201,6 +243,22 @@ The JSON examples below show the underlying format for reference. In practice, t
     "*.googlesyndication.com",
     "*.facebook.com",
     "analytics.google.com"
+  ],
+  "hooks_enabled": false
+}
+```
+
+**Combine entry types -- route gaming traffic through a low-latency exit:**
+
+```json
+{
+  "mode": "include",
+  "entries": [
+    "asn:32590",
+    "country:KR",
+    "*.steampowered.com",
+    "*.epicgames.com",
+    "104.16.0.0/12"
   ],
   "hooks_enabled": false
 }
