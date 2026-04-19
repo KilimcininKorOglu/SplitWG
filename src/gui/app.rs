@@ -22,7 +22,7 @@ use super::detail_panel::{self, DetailEvent, DetailTab};
 use super::log_tail::LogTail;
 use super::modals::{
     self, AddEvent, AddFlow, ConfigEditorEvent, ConfigEditorFlow, DeleteEvent, ExportEvent,
-    ExportFlow, ImportEvent, ImportFlow, PrefsEvent, PrefsFlow,
+    ExportFlow, ImportEvent, ImportFlow, PrefsEvent, PrefsFlow, RenameEvent, RenameFlow,
 };
 use super::package;
 use super::sparkline::{RttHistory, TransferHistory};
@@ -85,6 +85,7 @@ pub struct App {
     import_flow: Option<ImportFlow>,
     about_flow: Option<modals::AboutFlow>,
     config_editor_flow: Option<ConfigEditorFlow>,
+    rename_flow: Option<RenameFlow>,
 
     /// Tracks whether the main window is currently shown. The tray owns
     /// the canonical state (it's the one that asks for show/hide), but we
@@ -255,6 +256,7 @@ impl App {
             import_flow: None,
             about_flow: None,
             config_editor_flow: None,
+            rename_flow: None,
             window_visible: false,
             last_refresh: Instant::now() - Duration::from_secs(10),
             net_state,
@@ -1238,6 +1240,12 @@ impl eframe::App for App {
                 self.config_editor_flow =
                     Some(ConfigEditorFlow::open(&name));
             }
+            DetailEvent::Rename(name) => {
+                self.rename_flow = Some(RenameFlow {
+                    old_name: name.clone(),
+                    new_name: name,
+                });
+            }
         }
 
         self.render_modals(ctx);
@@ -1611,12 +1619,82 @@ impl App {
             }
         }
 
+        if let Some(flow) = self.rename_flow.as_mut() {
+            match modals::show_rename(ctx, flow) {
+                RenameEvent::Confirm => {
+                    let old = flow.old_name.clone();
+                    let new_name = flow.new_name.trim().to_string();
+
+                    if self.mgr.is_active(&old) {
+                        let _ = self.mgr.disconnect(&old);
+                    }
+
+                    match config::rename_config(&old, &new_name) {
+                        Ok(()) => {
+                            self.rekey_tunnel_state(&old, &new_name);
+                            self.configs =
+                                config::load_configs().unwrap_or_default();
+                        }
+                        Err(e) => {
+                            notify::error(
+                                &i18n::t("notify.splitwg"),
+                                &format!("{}: {}", old, e),
+                            );
+                        }
+                    }
+                    self.rename_flow = None;
+                }
+                RenameEvent::Cancel => {
+                    self.rename_flow = None;
+                }
+                RenameEvent::None => {}
+            }
+        }
+
         self.render_update_modal(ctx);
     }
 
     /// Draws the update modal on top of everything else when a
     /// `pending_update` exists. Phase 3 handles Announced (Download button),
     /// Downloading (progress bar), Ready (skeleton), and Failed (dismiss).
+    fn rekey_tunnel_state(&mut self, old: &str, new: &str) {
+        if self.selected.as_deref() == Some(old) {
+            self.selected = Some(new.to_string());
+        }
+        if let Some(v) = self.stats.remove(old) {
+            self.stats.insert(new.to_string(), v);
+        }
+        if let Some(v) = self.peer_key_cache.remove(old) {
+            self.peer_key_cache.insert(new.to_string(), v);
+        }
+        if let Some(v) = self.transfer_history.remove(old) {
+            self.transfer_history.insert(new.to_string(), v);
+        }
+        if let Some(v) = self.ping_results.remove(old) {
+            self.ping_results.insert(new.to_string(), v);
+        }
+        if let Some(v) = self.rtt_history.remove(old) {
+            self.rtt_history.insert(new.to_string(), v);
+        }
+        if let Some(v) = self.last_rtt_ping.remove(old) {
+            self.last_rtt_ping.insert(new.to_string(), v);
+        }
+        if let Some(v) = self.watchdog_state.remove(old) {
+            self.watchdog_state.insert(new.to_string(), v);
+        }
+        if self.in_progress.remove(old) {
+            self.in_progress.insert(new.to_string());
+        }
+        if self.manual_override.remove(old) {
+            self.manual_override.insert(new.to_string());
+        }
+        if let Some(ref mut rs) = self.rules_state {
+            if rs.name == old {
+                rs.name = new.to_string();
+            }
+        }
+    }
+
     fn render_update_modal(&mut self, ctx: &egui::Context) {
         let Some(state) = self.pending_update.clone() else {
             return;

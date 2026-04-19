@@ -771,6 +771,99 @@ pub fn show_config_editor(
 }
 
 // ============================================================================
+// Rename
+// ============================================================================
+
+pub struct RenameFlow {
+    pub old_name: String,
+    pub new_name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RenameEvent {
+    None,
+    Confirm,
+    Cancel,
+}
+
+pub fn show_rename(ctx: &egui::Context, flow: &mut RenameFlow) -> RenameEvent {
+    let mut event = RenameEvent::None;
+    let mut open = true;
+
+    egui::Window::new(i18n::t("gui.rename.title"))
+        .open(&mut open)
+        .collapsible(false)
+        .resizable(false)
+        .default_width(400.0)
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(i18n::t("gui.rename.current_name")).strong(),
+                );
+                ui.monospace(&flow.old_name);
+            });
+
+            ui.add_space(4.0);
+            ui.label(i18n::t("gui.rename.new_name"));
+            ui.text_edit_singleline(&mut flow.new_name);
+
+            let trimmed = flow.new_name.trim();
+            let name_valid = !trimmed.is_empty()
+                && !trimmed.contains(|c: char| {
+                    matches!(c, '/' | '\\' | '\0' | ':') || c.is_whitespace()
+                });
+            let same_name = trimmed == flow.old_name;
+            let duplicate = name_valid
+                && !same_name
+                && config::config_dir()
+                    .join(format!("{}.conf", trimmed))
+                    .exists();
+
+            if !name_valid && !flow.new_name.is_empty() {
+                ui.colored_label(
+                    egui::Color32::from_rgb(220, 120, 120),
+                    i18n::t("gui.rename.invalid_name"),
+                );
+            }
+            if same_name {
+                ui.colored_label(
+                    egui::Color32::from_rgb(220, 180, 80),
+                    i18n::t("gui.rename.same_name"),
+                );
+            }
+            if duplicate {
+                ui.colored_label(
+                    egui::Color32::from_rgb(220, 180, 80),
+                    i18n::t("gui.rename.duplicate"),
+                );
+            }
+
+            ui.separator();
+            ui.horizontal(|ui| {
+                if ui.button(i18n::t("gui.rename.cancel")).clicked() {
+                    event = RenameEvent::Cancel;
+                }
+                let can_rename = name_valid && !same_name && !duplicate;
+                if ui
+                    .add_enabled(
+                        can_rename,
+                        egui::Button::new(i18n::t("gui.rename.confirm")),
+                    )
+                    .clicked()
+                {
+                    event = RenameEvent::Confirm;
+                }
+            });
+        });
+
+    if !open && event == RenameEvent::None {
+        event = RenameEvent::Cancel;
+    }
+    event
+}
+
+// ============================================================================
 // About
 // ============================================================================
 

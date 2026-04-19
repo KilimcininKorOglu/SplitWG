@@ -32,6 +32,7 @@ pub enum DetailEvent {
     ApplyRules { name: String, rules: Rules },
     PingPeer { name: String, endpoint: String },
     EditConfig(String),
+    Rename(String),
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -108,6 +109,9 @@ pub fn show(
                     }
                     StatusEvent::EditConfig => {
                         event = DetailEvent::EditConfig(cfg.name.clone());
+                    }
+                    StatusEvent::Rename => {
+                        event = DetailEvent::Rename(cfg.name.clone());
                     }
                 }
             }

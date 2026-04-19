@@ -19,6 +19,8 @@ pub enum StatusEvent {
     PingPeer { endpoint: String },
     /// Open the config editor modal for the selected tunnel.
     EditConfig,
+    /// Rename the selected tunnel.
+    Rename,
 }
 
 /// Renders the Status tab for the selected tunnel. Returns a `StatusEvent`
@@ -77,6 +79,12 @@ pub fn show(
             .clicked()
         {
             event = StatusEvent::EditConfig;
+        }
+        if ui
+            .button(i18n::t("gui.detail.status.rename"))
+            .clicked()
+        {
+            event = StatusEvent::Rename;
         }
     });
 

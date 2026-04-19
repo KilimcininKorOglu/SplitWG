@@ -298,6 +298,42 @@ pub fn delete_config(name: &str) -> io::Result<()> {
     Ok(())
 }
 
+/// Renames `<old>.conf` → `<new>.conf` and `<old>.rules.json` →
+/// `<new>.rules.json`. Returns `AlreadyExists` if the target `.conf`
+/// file is already present. A missing `.rules.json` is silently skipped.
+pub fn rename_config(old_name: &str, new_name: &str) -> io::Result<()> {
+    log::info!(
+        "splitwg: config: renaming {:?} to {:?}",
+        old_name,
+        new_name
+    );
+    let dir = config_dir();
+    let old_conf = dir.join(format!("{old_name}.conf"));
+    let new_conf = dir.join(format!("{new_name}.conf"));
+    let old_rules = dir.join(format!("{old_name}.rules.json"));
+    let new_rules = dir.join(format!("{new_name}.rules.json"));
+
+    if new_conf.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("{new_name}.conf already exists"),
+        ));
+    }
+
+    fs::rename(&old_conf, &new_conf)?;
+
+    if old_rules.exists() {
+        fs::rename(&old_rules, &new_rules)?;
+    }
+
+    log::info!(
+        "splitwg: config: config {:?} renamed to {:?}",
+        old_name,
+        new_name
+    );
+    Ok(())
+}
+
 /// Returns the path to the global settings file (`settings.json`) inside the
 /// config directory. The file may be absent; callers use `load_settings` which
 /// returns `Settings::default()` in that case.
