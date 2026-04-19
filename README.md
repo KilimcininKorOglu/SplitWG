@@ -119,12 +119,12 @@ Each tunnel has its own submenu with a connect/disconnect toggle, an Edit Rules 
 
 All user data lives under `~/.config/splitwg/`:
 
-| File                | Permissions | Description                                 |
-|---------------------|-------------|---------------------------------------------|
-| `<name>.conf`       | 0600        | WireGuard configuration                     |
-| `<name>.rules.json` | 0644        | Split-tunnel rules and per-tunnel flags     |
-| `settings.json`     | 0644        | Global preferences (language, hooks, etc.)  |
-| `splitwg.log`       | 0644        | Append-only application log                 |
+| File                | Permissions | Description                                |
+|---------------------|-------------|--------------------------------------------|
+| `<name>.conf`       | 0600        | WireGuard configuration                    |
+| `<name>.rules.json` | 0644        | Split-tunnel rules and per-tunnel flags    |
+| `settings.json`     | 0644        | Global preferences (language, hooks, etc.) |
+| `splitwg.log`       | 0644        | Append-only application log                |
 
 User configurations are never auto-deleted or overwritten. Only `settings.json` is written by the app during normal operation.
 
@@ -134,14 +134,14 @@ Split-tunnel rules are managed entirely through the Rules tab in the Manage Tunn
 
 Supported entry types:
 
-| Type          | Example             | Description                                |
-|---------------|---------------------|--------------------------------------------|
-| CIDR range    | `10.0.0.0/8`        | IPv4 or IPv6 prefix                        |
-| Single IP     | `192.0.2.15`        | Individual address                         |
-| Exact host    | `vpn.example.com`   | Resolved to A and AAAA records             |
-| Wildcard host | `*.example.net`     | Matches all subdomains                     |
-| Country code  | `country:TR`        | ISO 3166 alpha-2, resolved via GeoLite2    |
-| ASN number    | `asn:13335`         | Autonomous system, resolved via GeoLite2   |
+| Type          | Example           | Description                              |
+|---------------|-------------------|------------------------------------------|
+| CIDR range    | `10.0.0.0/8`      | IPv4 or IPv6 prefix                      |
+| Single IP     | `192.0.2.15`      | Individual address                       |
+| Exact host    | `vpn.example.com` | Resolved to A and AAAA records           |
+| Wildcard host | `*.example.net`   | Matches all subdomains                   |
+| Country code  | `country:TR`      | ISO 3166 alpha-2, resolved via GeoLite2  |
+| ASN number    | `asn:13335`       | Autonomous system, resolved via GeoLite2 |
 
 ### Example Rules
 
@@ -207,26 +207,6 @@ The JSON examples below show the underlying format for reference. In practice, t
 ```
 
 Built-in templates for Netflix US, BBC iPlayer, Turkish banks, Spotify, and YouTube are available in the Rules tab and can be applied in one click.
-
----
-
-## Security
-
-### Update Verification
-
-Every downloaded update is verified through three independent checks before installation:
-
-| Layer        | What it proves                                         |
-|--------------|--------------------------------------------------------|
-| Developer ID | Binary is signed with a hardened runtime and timestamp |
-| Apple notary | Apple has scanned and approved the build               |
-| Minisign     | Build originates from this project's signing key       |
-
-A SHA-256 digest check against the GitHub release metadata provides an additional integrity gate. A failure at any stage aborts the update and reports the reason.
-
-### Privilege Separation
-
-The application enforces a strict two-process architecture. The tray process runs as the current user and handles all UI, configuration, and decision-making. Network operations that require root -- creating the tunnel interface, setting routes, managing DNS, and loading firewall anchors -- are handled by a separate helper process invoked via `sudo`. The two communicate over a typed JSON protocol on standard I/O. Neither process exceeds its role.
 
 ---
 
