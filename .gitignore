@@ -1,0 +1,16 @@
+/target/
+/dist/
+SplitWG.app/
+SplitWG-intel.app/
+SplitWG-arm.app/
+splitwg
+splitwg-helper
+splitwg-amd64
+splitwg-arm64
+*.dmg
+.DS_Store
+release_keys.md
+RELEASE-GUIDE.md
+
+# homebrew-tap is a separate repository (KilimcininKorOglu/homebrew-tap)
+/homebrew-tap/

@@ -1,0 +1,140 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('Cargo.lock') }}
+
+      - name: Install minisign + create-dmg
+        run: brew install minisign create-dmg
+
+      - name: Import Developer ID certificate
+        env:
+          CERT_P12_B64: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12 }}
+          CERT_PWD:     ${{ secrets.APPLE_DEVELOPER_ID_CERT_PWD }}
+        run: |
+          set -euo pipefail
+          echo "$CERT_P12_B64" | base64 -d > /tmp/cert.p12
+          KEYCHAIN=build.keychain
+          security create-keychain -p actions "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security unlock-keychain -p actions "$KEYCHAIN"
+          security set-keychain-settings -t 3600 -l "$KEYCHAIN"
+          security import /tmp/cert.p12 \
+            -k "$KEYCHAIN" -P "$CERT_PWD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k actions "$KEYCHAIN"
+          rm -f /tmp/cert.p12
+
+      - name: Configure notarytool profile
+        env:
+          APPLE_ID:        ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID:   ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PWD:   ${{ secrets.APPLE_APP_SPECIFIC_PWD }}
+        run: |
+          xcrun notarytool store-credentials splitwg-notary \
+            --apple-id  "$APPLE_ID" \
+            --team-id   "$APPLE_TEAM_ID" \
+            --password  "$APPLE_APP_PWD"
+
+      - name: Install minisign private key
+        env:
+          MINISIGN_KEY_B64: ${{ secrets.MINISIGN_KEY }}
+        run: |
+          mkdir -p ~/.minisign
+          echo "$MINISIGN_KEY_B64" | base64 -d > ~/.minisign/splitwg.key
+          chmod 600 ~/.minisign/splitwg.key
+
+      - name: Build, sign, notarize, minisign
+        env:
+          MINISIGN_PASSWORD: ${{ secrets.MINISIGN_KEY_PWD }}
+        run: make release
+
+      - name: Verify artifacts
+        run: |
+          set -euo pipefail
+          for dmg in dist/SplitWG.dmg dist/SplitWG-intel.dmg dist/SplitWG-arm.dmg; do
+            echo "::group::spctl $dmg"
+            spctl -a -vvv -t open --context context:primary-signature "$dmg"
+            echo "::endgroup::"
+            echo "::group::stapler $dmg"
+            xcrun stapler validate "$dmg"
+            echo "::endgroup::"
+            echo "::group::minisign $dmg"
+            minisign -V -p resources/splitwg.pub -m "$dmg"
+            echo "::endgroup::"
+          done
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/SplitWG.dmg
+            dist/SplitWG.dmg.minisig
+            dist/SplitWG-intel.dmg
+            dist/SplitWG-intel.dmg.minisig
+            dist/SplitWG-arm.dmg
+            dist/SplitWG-arm.dmg.minisig
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
+      - name: Bump Homebrew cask in KilimcininKorOglu/homebrew-tap
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOMEBREW_TAP_TOKEN:-}" ]; then
+            echo "HOMEBREW_TAP_TOKEN secret not set; skipping cask bump."
+            exit 0
+          fi
+          VERSION="${GITHUB_REF_NAME#v}"
+          SHA256=$(shasum -a 256 dist/SplitWG.dmg | awk '{print $1}')
+          WORK=$(mktemp -d)
+          git clone --depth 1 \
+            "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/KilimcininKorOglu/homebrew-tap.git" \
+            "$WORK/tap"
+          CASK="$WORK/tap/Casks/splitwg.rb"
+          /usr/bin/sed -i '' -E \
+            -e "s/^  version \"[^\"]*\"/  version \"${VERSION}\"/" \
+            -e "s/^  sha256 \"[0-9a-f]{64}\"/  sha256 \"${SHA256}\"/" \
+            "$CASK"
+          cd "$WORK/tap"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "Cask already at ${VERSION}; nothing to commit."
+            exit 0
+          fi
+          git add Casks/splitwg.rb
+          git commit -m "splitwg ${VERSION}"
+          git push origin HEAD:main
