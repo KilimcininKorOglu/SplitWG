@@ -63,6 +63,13 @@
   "gui.detail.peer.rx": "RX",
   "gui.detail.peer.tx": "TX",
   "gui.detail.copy": "Kopyala",
+  "gui.detail.status.edit_config": "Yapılandırmayı Düzenle",
+  "gui.editor.title": "Yapılandırmayı Düzenle",
+  "gui.editor.save": "Kaydet",
+  "gui.editor.cancel": "İptal",
+  "gui.editor.validate": "Doğrula",
+  "gui.editor.valid": "Yapılandırma geçerli.",
+  "gui.editor.invalid": "Ayrıştırma hatası: {error}",
 
   "gui.rules.mode_label": "Kip:",
   "gui.rules.mode_include": "Dahil Et (beyaz liste)",

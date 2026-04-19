@@ -63,6 +63,13 @@
   "gui.detail.peer.rx": "RX",
   "gui.detail.peer.tx": "TX",
   "gui.detail.copy": "Copy",
+  "gui.detail.status.edit_config": "Edit Config",
+  "gui.editor.title": "Edit Configuration",
+  "gui.editor.save": "Save",
+  "gui.editor.cancel": "Cancel",
+  "gui.editor.validate": "Validate",
+  "gui.editor.valid": "Configuration is valid.",
+  "gui.editor.invalid": "Parse error: {error}",
 
   "gui.rules.mode_label": "Mode:",
   "gui.rules.mode_include": "Include (whitelist)",

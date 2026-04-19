@@ -21,8 +21,8 @@ use super::detail::rules::RulesTabState;
 use super::detail_panel::{self, DetailEvent, DetailTab};
 use super::log_tail::LogTail;
 use super::modals::{
-    self, AddEvent, AddFlow, DeleteEvent, ExportEvent, ExportFlow, ImportEvent, ImportFlow,
-    PrefsEvent, PrefsFlow,
+    self, AddEvent, AddFlow, ConfigEditorEvent, ConfigEditorFlow, DeleteEvent, ExportEvent,
+    ExportFlow, ImportEvent, ImportFlow, PrefsEvent, PrefsFlow,
 };
 use super::package;
 use super::sparkline::{RttHistory, TransferHistory};
@@ -84,6 +84,7 @@ pub struct App {
     export_flow: Option<ExportFlow>,
     import_flow: Option<ImportFlow>,
     about_flow: Option<modals::AboutFlow>,
+    config_editor_flow: Option<ConfigEditorFlow>,
 
     /// Tracks whether the main window is currently shown. The tray owns
     /// the canonical state (it's the one that asks for show/hide), but we
@@ -253,6 +254,7 @@ impl App {
             export_flow: None,
             import_flow: None,
             about_flow: None,
+            config_editor_flow: None,
             window_visible: false,
             last_refresh: Instant::now() - Duration::from_secs(10),
             net_state,
@@ -1232,6 +1234,10 @@ impl eframe::App for App {
                     dns,
                 );
             }
+            DetailEvent::EditConfig(name) => {
+                self.config_editor_flow =
+                    Some(ConfigEditorFlow::open(&name));
+            }
         }
 
         self.render_modals(ctx);
@@ -1583,6 +1589,27 @@ impl App {
         }
 
         modals::show_about(ctx, &mut self.about_flow);
+
+        if let Some(flow) = self.config_editor_flow.as_mut() {
+            match modals::show_config_editor(ctx, flow) {
+                ConfigEditorEvent::Save => {
+                    let path = config::conf_path(&flow.name);
+                    if let Err(e) = std::fs::write(&path, &flow.draft) {
+                        log::error!(
+                            "splitwg: config editor: write failed: {e}"
+                        );
+                    } else {
+                        self.configs =
+                            config::load_configs().unwrap_or_default();
+                    }
+                    self.config_editor_flow = None;
+                }
+                ConfigEditorEvent::Cancel => {
+                    self.config_editor_flow = None;
+                }
+                ConfigEditorEvent::None => {}
+            }
+        }
 
         self.render_update_modal(ctx);
     }

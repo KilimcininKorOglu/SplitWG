@@ -31,6 +31,7 @@ pub enum DetailEvent {
     ToggleTunnel(String),
     ApplyRules { name: String, rules: Rules },
     PingPeer { name: String, endpoint: String },
+    EditConfig(String),
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -104,6 +105,9 @@ pub fn show(
                             name: cfg.name.clone(),
                             endpoint,
                         };
+                    }
+                    StatusEvent::EditConfig => {
+                        event = DetailEvent::EditConfig(cfg.name.clone());
                     }
                 }
             }

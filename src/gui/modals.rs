@@ -654,6 +654,123 @@ pub fn show_import(ctx: &egui::Context, flow: &mut ImportFlow) -> ImportEvent {
 fn _deps_used(_: &Path, _: &Settings) {}
 
 // ============================================================================
+// Config Editor
+// ============================================================================
+
+pub struct ConfigEditorFlow {
+    pub name: String,
+    pub draft: String,
+    pub original: String,
+    pub error: Option<String>,
+}
+
+impl ConfigEditorFlow {
+    pub fn open(name: &str) -> Self {
+        let path = config::conf_path(name);
+        let body = std::fs::read_to_string(&path).unwrap_or_default();
+        ConfigEditorFlow {
+            name: name.to_string(),
+            draft: body.clone(),
+            original: body,
+            error: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConfigEditorEvent {
+    None,
+    Save,
+    Cancel,
+}
+
+pub fn show_config_editor(
+    ctx: &egui::Context,
+    flow: &mut ConfigEditorFlow,
+) -> ConfigEditorEvent {
+    let mut event = ConfigEditorEvent::None;
+    let mut open = true;
+
+    egui::Window::new(i18n::t("gui.editor.title"))
+        .open(&mut open)
+        .collapsible(false)
+        .resizable(true)
+        .default_width(520.0)
+        .default_height(400.0)
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .show(ctx, |ui| {
+            ui.label(
+                egui::RichText::new(&flow.name).strong(),
+            );
+            ui.add_space(4.0);
+
+            egui::ScrollArea::vertical()
+                .max_height(300.0)
+                .show(ui, |ui| {
+                    ui.add(
+                        egui::TextEdit::multiline(&mut flow.draft)
+                            .font(egui::TextStyle::Monospace)
+                            .desired_width(f32::INFINITY)
+                            .desired_rows(18),
+                    );
+                });
+
+            ui.add_space(4.0);
+
+            if let Some(err) = &flow.error {
+                ui.colored_label(
+                    egui::Color32::from_rgb(220, 120, 120),
+                    i18n::t_with("gui.editor.invalid", &[("error", err)]),
+                );
+            }
+
+            ui.separator();
+
+            let parse_result = conf::parse(&flow.draft);
+            let is_valid = parse_result.is_ok();
+
+            ui.horizontal(|ui| {
+                if ui.button(i18n::t("gui.editor.validate")).clicked() {
+                    match conf::parse(&flow.draft) {
+                        Ok(_) => flow.error = None,
+                        Err(e) => flow.error = Some(e.to_string()),
+                    }
+                }
+                if flow.error.is_none()
+                    && flow.draft != flow.original
+                    && is_valid
+                {
+                    ui.colored_label(
+                        egui::Color32::from_rgb(80, 180, 100),
+                        i18n::t("gui.editor.valid"),
+                    );
+                }
+            });
+
+            ui.horizontal(|ui| {
+                if ui.button(i18n::t("gui.editor.cancel")).clicked() {
+                    event = ConfigEditorEvent::Cancel;
+                }
+                let can_save = flow.draft != flow.original && is_valid;
+                if ui
+                    .add_enabled(
+                        can_save,
+                        egui::Button::new(i18n::t("gui.editor.save")),
+                    )
+                    .clicked()
+                {
+                    event = ConfigEditorEvent::Save;
+                }
+            });
+        });
+
+    if !open && event == ConfigEditorEvent::None {
+        event = ConfigEditorEvent::Cancel;
+    }
+    event
+}
+
+// ============================================================================
 // About
 // ============================================================================
 

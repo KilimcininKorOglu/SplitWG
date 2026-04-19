@@ -17,6 +17,8 @@ pub enum StatusEvent {
     Toggle,
     /// Ping the peer at the given endpoint. Caller routes to `spawn_ping`.
     PingPeer { endpoint: String },
+    /// Open the config editor modal for the selected tunnel.
+    EditConfig,
 }
 
 /// Renders the Status tab for the selected tunnel. Returns a `StatusEvent`
@@ -69,6 +71,12 @@ pub fn show(
             .clicked()
         {
             event = StatusEvent::Toggle;
+        }
+        if ui
+            .button(i18n::t("gui.detail.status.edit_config"))
+            .clicked()
+        {
+            event = StatusEvent::EditConfig;
         }
     });
 
