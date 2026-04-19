@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.0] - 2026-04-19
+
+### Added
+
+- Auto-show window when a new update is available
+- Tunnel rename with full state re-keying
+- Inline config editor modal for editing .conf files from the Status tab
+
+### Fixed
+
+- Correct copyright holder name
+
 ## [1.0.0] - 2026-04-19
 
 ### Added
