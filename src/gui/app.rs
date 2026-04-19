@@ -1699,6 +1699,10 @@ impl App {
         let Some(state) = self.pending_update.clone() else {
             return;
         };
+        if !self.window_visible {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+            self.window_visible = true;
+        }
         let mut open = true;
         let mut action = UpdateModalAction::None;
 
