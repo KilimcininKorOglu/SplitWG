@@ -657,6 +657,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(unix)]
     async fn run_hook_substitutes_iface_in_command() {
         // Writes the iface name into a unique temp file; we read it back.
         let tmp = std::env::temp_dir().join(format!("splitwg-hook-test-{}", std::process::id()));

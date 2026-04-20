@@ -229,6 +229,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(unix)]
     fn search_paths_includes_home_config() {
         let paths = search_paths();
         assert!(
@@ -250,6 +251,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn asn_search_paths_includes_home_config() {
         let paths = asn_search_paths();
         assert!(

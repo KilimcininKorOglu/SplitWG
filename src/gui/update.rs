@@ -916,6 +916,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn cache_dir_resolves_under_home() {
         let dir = cache_dir();
         let s = dir.to_string_lossy();
