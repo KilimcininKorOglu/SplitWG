@@ -38,7 +38,7 @@ pub enum TunnelMode {
     Exclude,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct UpParams {
     pub tunnel: String,
 
@@ -83,6 +83,25 @@ pub struct UpParams {
     /// that don't emit the field stay unaffected.
     #[serde(default)]
     pub kill_switch: bool,
+}
+
+impl std::fmt::Debug for UpParams {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UpParams")
+            .field("tunnel", &self.tunnel)
+            .field("interface_key", &"[REDACTED]")
+            .field("peer_key", &self.peer_key)
+            .field("psk", &self.psk.as_ref().map(|_| "[REDACTED]"))
+            .field("endpoint", &self.endpoint)
+            .field("allowed_ips", &self.allowed_ips)
+            .field("addresses", &self.addresses)
+            .field("dns", &self.dns)
+            .field("mtu", &self.mtu)
+            .field("keepalive", &self.keepalive)
+            .field("mode", &self.mode)
+            .field("kill_switch", &self.kill_switch)
+            .finish()
+    }
 }
 
 fn default_mtu() -> u16 {

@@ -20,7 +20,7 @@ pub struct WgConfig {
 }
 
 /// `[Interface]` section.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Clone, PartialEq, Eq, Default)]
 pub struct InterfaceConfig {
     pub private_key: [u8; 32],
     pub addresses: Vec<IpNet>,
@@ -38,13 +38,37 @@ pub struct InterfaceConfig {
 }
 
 /// `[Peer]` section.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PeerConfig {
     pub public_key: [u8; 32],
     pub preshared_key: Option<[u8; 32]>,
     pub allowed_ips: Vec<IpNet>,
     pub endpoint: Option<SocketAddr>,
     pub persistent_keepalive: Option<u16>,
+}
+
+impl std::fmt::Debug for InterfaceConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InterfaceConfig")
+            .field("private_key", &"[REDACTED]")
+            .field("addresses", &self.addresses)
+            .field("dns", &self.dns)
+            .field("mtu", &self.mtu)
+            .field("listen_port", &self.listen_port)
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for PeerConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PeerConfig")
+            .field("public_key", &"[REDACTED]")
+            .field("preshared_key", &self.preshared_key.as_ref().map(|_| "[REDACTED]"))
+            .field("allowed_ips", &self.allowed_ips)
+            .field("endpoint", &self.endpoint)
+            .field("persistent_keepalive", &self.persistent_keepalive)
+            .finish()
+    }
 }
 
 /// Returns the base64-encoded PublicKey of the first `[Peer]` section, or
