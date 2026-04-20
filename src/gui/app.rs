@@ -226,9 +226,6 @@ impl App {
         let (net_tx, net_rx) = mpsc::channel();
         super::network_monitor::start(cc.egui_ctx.clone(), net_state.clone(), net_tx);
 
-        // Install the macOS URL scheme handler — `x-splitwg://connect/...`
-        // et al. Runs on the main thread while eframe boots; the AppleEvent
-        // registration is idempotent across warm restarts.
         let url_rx = super::url_scheme::install(cc.egui_ctx.clone());
 
         Ok(App {

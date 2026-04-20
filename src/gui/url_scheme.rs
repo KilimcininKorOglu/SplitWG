@@ -10,7 +10,6 @@
 //! matching `CFBundleURLTypes` entry means LaunchServices forwards the
 //! event to the existing process rather than spawning a second instance.
 
-use std::os::raw::c_char;
 use std::sync::mpsc;
 use std::sync::Mutex;
 
@@ -36,18 +35,16 @@ struct Sink {
     ctx: egui::Context,
 }
 
+#[cfg(target_os = "macos")]
 extern "C" {
-    fn splitwg_install_url_handler(cb: extern "C" fn(*const c_char));
+    fn splitwg_install_url_handler(cb: extern "C" fn(*const std::os::raw::c_char));
 }
 
-/// Callback invoked by the ObjC shim on the main thread.
-extern "C" fn url_callback(ptr: *const c_char) {
+#[cfg(target_os = "macos")]
+extern "C" fn url_callback(ptr: *const std::os::raw::c_char) {
     if ptr.is_null() {
         return;
     }
-    // Safety: shim guarantees a NUL-terminated UTF-8 buffer valid for the
-    // duration of this call. We copy immediately and never hold onto the
-    // pointer.
     let bytes = unsafe { std::ffi::CStr::from_ptr(ptr) };
     let url = match bytes.to_str() {
         Ok(s) => s.to_string(),
@@ -88,10 +85,10 @@ pub fn install(ctx: egui::Context) -> mpsc::Receiver<UrlAction> {
     if let Ok(mut guard) = cell.lock() {
         *guard = Some(sink);
     }
-    // Safety: shim is a plain C function that stores the callback pointer
-    // and (on first call) installs the AppleEvent handler. Subsequent
-    // invocations replace only the callback pointer.
-    unsafe { splitwg_install_url_handler(url_callback) };
+    #[cfg(target_os = "macos")]
+    unsafe {
+        splitwg_install_url_handler(url_callback);
+    }
     rx
 }
 

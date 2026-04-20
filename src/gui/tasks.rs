@@ -445,8 +445,13 @@ pub fn spawn_ping(tx: TaskTx, ctx: egui::Context, name: String, endpoint: String
         let host = dns.first()
             .cloned()
             .unwrap_or_else(|| parse_host(&endpoint));
+        #[cfg(target_os = "macos")]
         let output = Command::new("/sbin/ping")
             .args(["-c", "1", "-W", "1000", &host])
+            .output();
+        #[cfg(target_os = "windows")]
+        let output = Command::new("ping")
+            .args(["-n", "1", "-w", "1000", &host])
             .output();
         let result = output.ok().and_then(|o| {
             if !o.status.success() {

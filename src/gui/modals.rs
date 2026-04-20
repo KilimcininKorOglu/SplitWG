@@ -241,15 +241,30 @@ fn format_epoch_or_key(ts: Option<u64>, never_key: &str) -> String {
     let Some(secs) = ts else {
         return i18n::t(never_key);
     };
-    let output = std::process::Command::new("/bin/date")
-        .args(["-r", &secs.to_string(), "+%Y-%m-%d %H:%M"])
-        .output();
-    match output {
-        Ok(o) if o.status.success() => {
-            String::from_utf8_lossy(&o.stdout).trim().to_string()
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("/bin/date")
+            .args(["-r", &secs.to_string(), "+%Y-%m-%d %H:%M"])
+            .output();
+        if let Ok(o) = output {
+            if o.status.success() {
+                return String::from_utf8_lossy(&o.stdout).trim().to_string();
+            }
         }
-        _ => secs.to_string(),
     }
+    #[cfg(target_os = "windows")]
+    {
+        let output = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-Command",
+                &format!("(Get-Date '1970-01-01').AddSeconds({secs}).ToString('yyyy-MM-dd HH:mm')")])
+            .output();
+        if let Ok(o) = output {
+            if o.status.success() {
+                return String::from_utf8_lossy(&o.stdout).trim().to_string();
+            }
+        }
+    }
+    secs.to_string()
 }
 
 impl PrefsFlow {
