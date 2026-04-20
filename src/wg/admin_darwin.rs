@@ -65,10 +65,14 @@ fn sudo_n(cmd: &str) -> Result<(), WgError> {
 
 /// Requests the password via the native macOS dialog.
 ///
-/// Escapes backslashes and double-quotes before embedding in the AppleScript
-/// literal, then invokes `osascript -e 'do shell script "…" with administrator privileges'`.
+/// The command is wrapped in `sh -c <shell_quoted>` so all shell
+/// metacharacters (`$()`, backticks, `!`, etc.) are neutralized by
+/// single-quote escaping. The AppleScript string only needs `\` and `"`
+/// escaped for the outer literal.
 pub fn run_as_admin_osascript(shell_cmd: &str) -> Result<(), WgError> {
-    let mut escaped = shell_cmd.replace('\\', "\\\\");
+    let quoted = super::shell_quote(shell_cmd);
+    let inner = format!("sh -c {quoted}");
+    let mut escaped = inner.replace('\\', "\\\\");
     escaped = escaped.replace('"', "\\\"");
     let script = format!(
         "do shell script \"{}\" with administrator privileges",
