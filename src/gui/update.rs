@@ -248,6 +248,7 @@ pub fn cache_dir() -> PathBuf {
 /// Downloads the DMG, verifies sha-256 + minisign + Team ID + notarization,
 /// then returns a `DownloadedUpdate` describing the cached `.app`. The mount
 /// point is detached before returning so nothing is left attached.
+#[cfg(target_os = "macos")]
 pub fn download_and_verify(
     dmg_url: &str,
     minisig_url: &str,
@@ -485,6 +486,7 @@ fn copy_recursive(src: &Path, dst: &Path) -> Result<(), UpdateError> {
 
 /// Team Identifier of the running binary. Cached on first call because the
 /// codesign subprocess takes ~80 ms and self-inspection never changes.
+#[cfg(target_os = "macos")]
 fn self_team_id() -> Result<String, UpdateError> {
     static CACHE: OnceLock<Result<String, String>> = OnceLock::new();
     let cached = CACHE.get_or_init(|| match current_app_bundle() {

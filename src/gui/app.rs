@@ -1883,6 +1883,7 @@ impl App {
                         downloaded: 0,
                         total: 0,
                     });
+                    #[cfg(target_os = "macos")]
                     tasks::spawn_update_download(
                         self.task_tx.clone(),
                         ctx.clone(),

@@ -327,6 +327,7 @@ pub fn spawn_update_check(tx: TaskTx, ctx: egui::Context, user_initiated: bool) 
 /// Downloads + verifies a release asset on a worker thread. Streams
 /// progress back via `UpdateDownloadProgress`; posts either `UpdateReady`
 /// or `UpdateVerificationFailed` as the terminal variant.
+#[cfg(target_os = "macos")]
 pub fn spawn_update_download(
     tx: TaskTx,
     ctx: egui::Context,
