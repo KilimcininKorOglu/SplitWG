@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.1] - 2026-04-20
+
+### Added
+
+- Ping all active tunnels from tray menu
+
+### Fixed
+
+- Resolve RUSTSEC-2025-0132: upgrade maxminddb 0.24 to 0.27 (unsound `open_mmap`)
+- Set tunnel DNS as system default resolver via SupplementalMatchDomains
+- Reject tunnel names with path traversal characters on package import
+- Restrict GeoLite workflow repository_dispatch to typed events only
+- Gate release workflow behind production environment
+- Shell-quote helper path in sudoers setup to prevent injection
+- Wrap osascript shell command in shell_quote to neutralize metacharacters
+- Require user confirmation for URL scheme tunnel actions
+- Pin all GitHub Actions to immutable SHA digests
+- Create log file with owner-only permissions (0600)
+- Redact key material in Debug output of IPC and config structs
+- Eliminate TOCTOU race in write_with_mode by setting permissions at creation
+- Scope sudoers NOPASSWD rule to the installing user instead of entire admin group
+
 ## [1.1.0] - 2026-04-19
 
 ### Added
