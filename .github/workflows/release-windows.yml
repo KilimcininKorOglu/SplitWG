@@ -1,0 +1,70 @@
+name: Release (Windows)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    environment: production
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('Cargo.lock') }}
+
+      - name: Build release binaries
+        run: cargo build --release --bin splitwg --bin splitwg-svc
+
+      - name: Download Wintun
+        run: |
+          Invoke-WebRequest -Uri "https://www.wintun.net/builds/wintun-0.14.1.zip" -OutFile wintun.zip
+          Expand-Archive wintun.zip -DestinationPath wintun
+          Copy-Item wintun/wintun/bin/amd64/wintun.dll target/release/
+
+      - name: Install NSIS
+        run: choco install nsis -y
+
+      - name: Build installer
+        run: makensis /DVERSION=${{ github.ref_name }} installer/splitwg.nsi
+
+      - name: Sign installer (Azure Trusted Signing)
+        if: env.AZURE_TENANT_ID != ''
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: |
+          dotnet tool install --global AzureSignTool
+          AzureSignTool sign `
+            --azure-key-vault-url "${{ secrets.AZURE_VAULT_URL }}" `
+            --azure-key-vault-certificate "${{ secrets.AZURE_CERT_NAME }}" `
+            --azure-key-vault-tenant-id "$env:AZURE_TENANT_ID" `
+            --azure-key-vault-client-id "$env:AZURE_CLIENT_ID" `
+            --azure-key-vault-client-secret "$env:AZURE_CLIENT_SECRET" `
+            --timestamp-rfc3161 "http://timestamp.digicert.com" `
+            --description "SplitWG Windows Installer" `
+            "dist/SplitWG-Setup.exe"
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        with:
+          files: dist/SplitWG-Setup.exe
+          fail_on_unmatched_files: false
