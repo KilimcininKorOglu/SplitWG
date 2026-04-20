@@ -23,19 +23,17 @@ pub fn is_setup_done() -> bool {
     exists
 }
 
-/// Builds the sudoers rule text for `helper_path`. Kept as a pure function so
-/// it can be unit-tested without invoking osascript.
 pub fn sudoers_rule(helper_path: &Path) -> String {
+    let user = std::env::var("USER").unwrap_or_else(|_| "root".to_string());
     format!(
-        "%admin ALL=(ALL) NOPASSWD: {}",
+        "{user} ALL=(ALL) NOPASSWD: {}",
         helper_path.display()
     )
 }
 
 /// Installs the sudoers rule via a one-time password prompt.
 ///
-/// Uses `echo` (not `printf`) — otherwise the literal `%` in `%admin` would be
-/// interpreted by the shell/printf format.
+/// Uses `echo` (not `printf`) to avoid shell format-string interpretation.
 pub fn run_first_time_setup() -> Result<(), String> {
     log::info!("splitwg: setup: starting first-time setup");
     let helper = locate_helper()?;
@@ -119,9 +117,10 @@ mod tests {
     #[test]
     fn sudoers_rule_pins_helper_path() {
         let rule = sudoers_rule(Path::new("/Applications/SplitWG.app/Contents/MacOS/splitwg-helper"));
+        let user = std::env::var("USER").unwrap_or_else(|_| "root".to_string());
         assert_eq!(
             rule,
-            "%admin ALL=(ALL) NOPASSWD: /Applications/SplitWG.app/Contents/MacOS/splitwg-helper"
+            format!("{user} ALL=(ALL) NOPASSWD: /Applications/SplitWG.app/Contents/MacOS/splitwg-helper")
         );
     }
 
