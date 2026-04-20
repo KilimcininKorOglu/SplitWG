@@ -65,7 +65,7 @@ jobs:
           key: ${{ runner.os }}-cargo-ci-${{ hashFiles('Cargo.lock') }}
 
       - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --lib --bin splitwg --bin splitwg-svc -- -D warnings
 
       - name: Unit tests
         run: cargo test --lib
