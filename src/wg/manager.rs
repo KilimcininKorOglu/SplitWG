@@ -27,7 +27,7 @@ pub struct TunnelState {
     pub config_path: PathBuf,
     pub rules: Rules,
     pub iface: String,
-    child: Arc<Mutex<Child>>,
+    transport: Arc<Mutex<IpcTransport>>,
 }
 
 impl Clone for TunnelState {
@@ -36,7 +36,7 @@ impl Clone for TunnelState {
             config_path: self.config_path.clone(),
             rules: self.rules.clone(),
             iface: self.iface.clone(),
-            child: self.child.clone(),
+            transport: self.transport.clone(),
         }
     }
 }
@@ -218,44 +218,26 @@ impl Manager {
             kill_switch: config::load_settings().kill_switch,
         };
 
-        let helper = helper_path()?;
-        let helper_s = helper
-            .to_str()
-            .ok_or_else(|| WgError::Msg("helper path not UTF-8".into()))?;
-        log::info!("splitwg: manager: spawning helper at {helper_s}");
-
-        let mut child = Command::new("sudo")
-            .args(["-n", "--", helper_s])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| WgError::Msg(format!("spawn helper: {e}")))?;
-        log::info!("splitwg: manager: helper spawned (pid={})", child.id());
+        log::info!("splitwg: manager: creating IPC transport");
+        let mut transport = IpcTransport::create(&params)?;
 
         let up_json = serde_json::to_string(&IpcCmd::Up(Box::new(params)))
             .map_err(|e| WgError::Msg(format!("serialize up: {e}")))?;
         log::info!("splitwg: manager: sending Up command ({} bytes)", up_json.len());
-        if let Some(stdin) = child.stdin.as_mut() {
-            writeln!(stdin, "{up_json}")
-                .map_err(|e| WgError::Msg(format!("write helper stdin: {e}")))?;
-            let _ = stdin.flush();
-        } else {
-            let _ = child.kill();
-            return Err(WgError::Msg("helper stdin missing".into()));
-        }
+        transport.send_raw(&up_json)?;
 
         log::info!("splitwg: manager: waiting for Ready event (timeout={}s)", READY_TIMEOUT.as_secs());
-        let stderr_rx = spawn_stderr_logger(&mut child, cfg.name.clone());
-        let iface = match read_ready(&mut child, READY_TIMEOUT, cfg.name.clone(), self.event_tx.clone()) {
+        #[cfg(target_os = "macos")]
+        let stderr_rx = spawn_stderr_logger(&mut transport.child, cfg.name.clone());
+        let iface = match read_ready_from_transport(&mut transport, READY_TIMEOUT, cfg.name.clone(), self.event_tx.clone()) {
             Ok(iface) => {
                 log::info!("splitwg: manager: helper ready on {iface}");
                 iface
             }
             Err(e) => {
                 log::error!("splitwg: manager: helper bringup failed: {e}");
-                let _ = child.kill();
-                let _ = child.wait();
+                transport.kill();
+                #[cfg(target_os = "macos")]
                 drop(stderr_rx);
                 return Err(WgError::Msg(format!("helper bringup: {e}")));
             }
@@ -265,7 +247,7 @@ impl Manager {
             config_path: cfg.file_path.clone(),
             rules: cfg.rules.clone(),
             iface,
-            child: Arc::new(Mutex::new(child)),
+            transport: Arc::new(Mutex::new(transport)),
         };
 
         let mut map = self
@@ -289,38 +271,18 @@ impl Manager {
                 .ok_or_else(|| WgError::Msg(format!("{name} is not tracked")))?
         };
 
-        let mut child = state
-            .child
+        let mut transport = state
+            .transport
             .lock()
-            .map_err(|_| WgError::Msg("child mutex poisoned".into()))?;
+            .map_err(|_| WgError::Msg("transport mutex poisoned".into()))?;
 
-        if let Some(stdin) = child.stdin.as_mut() {
-            log::info!("splitwg: manager: sending Shutdown command to {:?}", name);
-            let _ = writeln!(stdin, "{}", serde_json::to_string(&IpcCmd::Shutdown).unwrap());
-            let _ = stdin.flush();
-        }
+        log::info!("splitwg: manager: sending Shutdown command to {:?}", name);
+        let _ = transport.send_raw(
+            &serde_json::to_string(&IpcCmd::Shutdown).unwrap(),
+        );
 
-        let deadline = Instant::now() + SHUTDOWN_TIMEOUT;
-        loop {
-            match child.try_wait() {
-                Ok(Some(status)) => {
-                    log::info!("splitwg: manager: helper {:?} exited cleanly ({})", name, status);
-                    return Ok(());
-                }
-                Ok(None) => {}
-                Err(e) => {
-                    log::warn!("splitwg: manager: try_wait({name}): {e}");
-                    return Ok(());
-                }
-            }
-            if Instant::now() >= deadline {
-                log::warn!("splitwg: manager: helper {name} unresponsive after {}s, killing", SHUTDOWN_TIMEOUT.as_secs());
-                let _ = child.kill();
-                let _ = child.wait();
-                return Ok(());
-            }
-            thread::sleep(Duration::from_millis(100));
-        }
+        transport.wait_shutdown(SHUTDOWN_TIMEOUT, name);
+        Ok(())
     }
 
     /// Cycles a tunnel — disconnect (idempotent, "not tracked" is ignored)
@@ -372,6 +334,7 @@ impl Manager {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn spawn_stderr_logger(child: &mut Child, tunnel: String) -> Option<thread::JoinHandle<()>> {
     let stderr = child.stderr.take()?;
     Some(thread::spawn(move || {
@@ -382,81 +345,213 @@ fn spawn_stderr_logger(child: &mut Child, tunnel: String) -> Option<thread::Join
     }))
 }
 
-/// Blocks until the helper emits a `Ready` or `Error` event, or the timeout
-/// expires. After `Ready` arrives, a background thread continues draining
-/// stdout and forwards parsed events to `event_fwd` so the GUI can consume
-/// Stats / Handshake updates.
-fn read_ready(
-    child: &mut Child,
+
+// ---------------------------------------------------------------------------
+// IPC Transport — platform-specific communication with the privileged process
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "macos")]
+struct IpcTransport {
+    child: Child,
+}
+
+#[cfg(target_os = "macos")]
+impl IpcTransport {
+    fn create(_params: &UpParams) -> Result<Self, WgError> {
+        let helper = helper_path()?;
+        let helper_s = helper
+            .to_str()
+            .ok_or_else(|| WgError::Msg("helper path not UTF-8".into()))?;
+        log::info!("splitwg: transport: spawning helper at {helper_s}");
+        let child = Command::new("sudo")
+            .args(["-n", "--", helper_s])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| WgError::Msg(format!("spawn helper: {e}")))?;
+        log::info!("splitwg: transport: helper spawned (pid={})", child.id());
+        Ok(Self { child })
+    }
+
+    fn send_raw(&mut self, json: &str) -> Result<(), WgError> {
+        if let Some(stdin) = self.child.stdin.as_mut() {
+            writeln!(stdin, "{json}")
+                .map_err(|e| WgError::Msg(format!("write helper stdin: {e}")))?;
+            let _ = stdin.flush();
+            Ok(())
+        } else {
+            Err(WgError::Msg("helper stdin missing".into()))
+        }
+    }
+
+    fn take_stdout(&mut self) -> Option<std::process::ChildStdout> {
+        self.child.stdout.take()
+    }
+
+    fn kill(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+
+    fn wait_shutdown(&mut self, timeout: Duration, name: &str) {
+        let deadline = Instant::now() + timeout;
+        loop {
+            match self.child.try_wait() {
+                Ok(Some(status)) => {
+                    log::info!("splitwg: manager: helper {name:?} exited ({status})");
+                    return;
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    log::warn!("splitwg: manager: try_wait({name}): {e}");
+                    return;
+                }
+            }
+            if Instant::now() >= deadline {
+                log::warn!("splitwg: manager: helper {name} unresponsive, killing");
+                let _ = self.child.kill();
+                let _ = self.child.wait();
+                return;
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+struct IpcTransport {
+    pipe: std::fs::File,
+    reader: BufReader<std::fs::File>,
+}
+
+#[cfg(target_os = "windows")]
+impl IpcTransport {
+    fn create(_params: &UpParams) -> Result<Self, WgError> {
+        use std::fs::OpenOptions;
+        log::info!("splitwg: transport: connecting to service pipe");
+        let pipe = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(r"\\.\pipe\splitwg")
+            .map_err(|e| WgError::Msg(format!("connect to service pipe: {e}")))?;
+        let reader = BufReader::new(pipe.try_clone()
+            .map_err(|e| WgError::Msg(format!("clone pipe handle: {e}")))?);
+        log::info!("splitwg: transport: connected to service pipe");
+        Ok(Self { pipe, reader })
+    }
+
+    fn send_raw(&mut self, json: &str) -> Result<(), WgError> {
+        writeln!(self.pipe, "{json}")
+            .map_err(|e| WgError::Msg(format!("write to service pipe: {e}")))?;
+        let _ = self.pipe.flush();
+        Ok(())
+    }
+
+    fn kill(&mut self) {}
+
+    fn wait_shutdown(&mut self, _timeout: Duration, _name: &str) {}
+}
+
+fn read_ready_from_transport(
+    transport: &mut IpcTransport,
     timeout: Duration,
     tunnel_name: String,
     event_fwd: mpsc::Sender<(String, IpcEvent)>,
 ) -> Result<String, String> {
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| "helper stdout missing".to_string())?;
-    let (tx, rx) = mpsc::channel::<String>();
-    thread::spawn(move || {
-        let reader = BufReader::new(stdout);
-        for line in reader.lines().map_while(Result::ok) {
-            if tx.send(line).is_err() {
-                break;
+    #[cfg(target_os = "macos")]
+    {
+        let stdout = transport
+            .take_stdout()
+            .ok_or_else(|| "helper stdout missing".to_string())?;
+        let (tx, rx) = mpsc::channel::<String>();
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines().map_while(Result::ok) {
+                if tx.send(line).is_err() {
+                    break;
+                }
             }
-        }
-    });
+        });
 
-    let deadline = Instant::now() + timeout;
-    let iface = loop {
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            return Err("ready event timed out".into());
-        }
-        match rx.recv_timeout(remaining.min(Duration::from_millis(500))) {
-            Ok(line) => {
-                match serde_json::from_str::<IpcEvent>(&line) {
+        let deadline = Instant::now() + timeout;
+        let iface = loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err("ready event timed out".into());
+            }
+            match rx.recv_timeout(remaining.min(Duration::from_millis(500))) {
+                Ok(line) => match serde_json::from_str::<IpcEvent>(&line) {
                     Ok(IpcEvent::Ready { iface }) => break iface,
                     Ok(IpcEvent::Error { message }) => return Err(message),
                     Ok(_) => continue,
                     Err(e) => return Err(format!("malformed event `{line}`: {e}")),
+                },
+                Err(mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    return Err("helper stdout closed before Ready".into())
                 }
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => continue,
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                return Err("helper stdout closed before Ready".into())
-            }
-        }
-    };
+        };
 
-    // Keep draining — forward parsed Stats/Handshake events to the GUI.
-    thread::spawn(move || {
-        for line in rx {
-            match serde_json::from_str::<IpcEvent>(&line) {
-                Ok(ev @ (IpcEvent::Stats { .. } | IpcEvent::Handshake { .. })) => {
-                    if event_fwd.send((tunnel_name.clone(), ev)).is_err() {
-                        break;
+        thread::spawn(move || {
+            for line in rx {
+                match serde_json::from_str::<IpcEvent>(&line) {
+                    Ok(ev @ (IpcEvent::Stats { .. } | IpcEvent::Handshake { .. })) => {
+                        if event_fwd.send((tunnel_name.clone(), ev)).is_err() {
+                            break;
+                        }
                     }
-                }
-                Ok(IpcEvent::Error { message }) => {
-                    log::warn!("splitwg: helper[{tunnel_name}]: error event: {message}");
-                }
-                Ok(_) => {}
-                Err(e) => {
-                    log::debug!("splitwg: helper[{tunnel_name}]: unparseable line: {e}");
+                    Ok(IpcEvent::Error { message }) => {
+                        log::warn!("splitwg: helper[{tunnel_name}]: error: {message}");
+                    }
+                    _ => {}
                 }
             }
-        }
-    });
+        });
 
-    Ok(iface)
+        Ok(iface)
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err("ready event timed out".into());
+            }
+            let mut line = String::new();
+            transport.reader.read_line(&mut line)
+                .map_err(|e| format!("read from service pipe: {e}"))?;
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            match serde_json::from_str::<IpcEvent>(line) {
+                Ok(IpcEvent::Ready { iface }) => {
+                    let name = tunnel_name.clone();
+                    let mut reader = BufReader::new(transport.pipe.try_clone().unwrap());
+                    thread::spawn(move || {
+                        let mut buf = String::new();
+                        while reader.read_line(&mut buf).unwrap_or(0) > 0 {
+                            if let Ok(ev) = serde_json::from_str::<IpcEvent>(buf.trim()) {
+                                let _ = event_fwd.send((name.clone(), ev));
+                            }
+                            buf.clear();
+                        }
+                    });
+                    return Ok(iface);
+                }
+                Ok(IpcEvent::Error { message }) => return Err(message),
+                _ => continue,
+            }
+        }
+    }
 }
 
-/// Locates the `splitwg-helper` binary.
-///
-/// Preference:
-/// 1. `SPLITWG_HELPER` env var (tests / developers override).
-/// 2. Sibling of the current executable (bundle layout).
-/// 3. Cargo's `target/{debug,release}/splitwg-helper` (dev fallback).
+/// Locates the `splitwg-helper` binary (macOS only).
+#[cfg(target_os = "macos")]
 pub fn helper_path() -> Result<PathBuf, WgError> {
     if let Ok(env) = std::env::var("SPLITWG_HELPER") {
         let p = PathBuf::from(env);
