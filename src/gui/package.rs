@@ -207,15 +207,16 @@ fn pick_unique_name(base: &str, dir: &Path) -> String {
     format!("{base}-imported")
 }
 
-fn write_with_mode(path: &Path, data: &[u8], mode: u32) -> std::io::Result<()> {
+fn write_with_mode(path: &Path, data: &[u8], _mode: u32) -> std::io::Result<()> {
     use std::io::Write;
-    use std::os::unix::fs::OpenOptionsExt;
-    let mut f = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(mode)
-        .open(path)?;
+    let mut opts = fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(_mode);
+    }
+    let mut f = opts.open(path)?;
     f.write_all(data)?;
     Ok(())
 }

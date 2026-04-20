@@ -951,6 +951,7 @@ mod tests {
             .unwrap_or(0)
     }
 
+    #[cfg(unix)]
     fn set_mtime(path: &Path, epoch: u64) -> std::io::Result<()> {
         use std::os::unix::fs::OpenOptionsExt;
         // On macOS, `touch -t` is the cheapest portable backdate; call

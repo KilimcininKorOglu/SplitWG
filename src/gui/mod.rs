@@ -17,6 +17,11 @@ pub mod login_item;
 #[path = "login_item_windows.rs"]
 pub mod login_item;
 pub mod modals;
+#[cfg(target_os = "macos")]
+#[path = "network_monitor_darwin.rs"]
+pub mod network_monitor;
+#[cfg(target_os = "windows")]
+#[path = "network_monitor_windows.rs"]
 pub mod network_monitor;
 pub mod package;
 pub mod qr;
@@ -41,6 +46,7 @@ pub fn run() -> eframe::Result<()> {
     // Set the activation policy BEFORE eframe opens a viewport so the Dock
     // never flashes a bouncing icon. `LSUIElement=true` in Info.plist is
     // the primary guarantee; this runtime call backs it up for `cargo run`.
+    #[cfg(target_os = "macos")]
     activation::set_accessory();
 
     let options = eframe::NativeOptions {

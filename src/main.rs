@@ -4,6 +4,7 @@
 
 use std::fs::OpenOptions;
 use std::io::Write;
+#[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 use std::sync::Mutex;
 
@@ -104,12 +105,11 @@ fn is_leap(y: i32) -> bool {
 fn init_file_logging() {
     let file = config::ensure_config_dir().ok().and_then(|_| {
         let path = config::config_dir().join("splitwg.log");
-        OpenOptions::new()
-            .create(true)
-            .append(true)
-            .mode(0o600)
-            .open(path)
-            .ok()
+        let mut opts = OpenOptions::new();
+        opts.create(true).append(true);
+        #[cfg(unix)]
+        opts.mode(0o600);
+        opts.open(path).ok()
     });
     let logger = Box::leak(Box::new(FileLogger {
         file: Mutex::new(file),

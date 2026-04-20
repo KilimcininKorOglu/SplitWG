@@ -14,7 +14,9 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::watch;
 
 use splitwg::ipc::{Command, Event};
-use splitwg::runtime::{pf, Tunnel};
+#[cfg(target_os = "macos")]
+use splitwg::runtime::pf;
+use splitwg::runtime::Tunnel;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() {
@@ -25,6 +27,7 @@ async fn main() {
 async fn run() -> i32 {
     eprintln!("splitwg-helper: main: helper starting");
 
+    #[cfg(target_os = "macos")]
     pf::preemptive_flush();
 
     let (shutdown_tx, shutdown_rx) = watch::channel(false);

@@ -2,6 +2,7 @@
 
 use std::fs;
 use std::io;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
@@ -185,6 +186,7 @@ pub fn ensure_config_dir() -> io::Result<()> {
     fs::create_dir_all(&dir)?;
     // create_dir_all respects existing permissions; set them explicitly on
     // create only so `0o755` applies without clobbering user-tightened perms.
+    #[cfg(unix)]
     if let Ok(md) = fs::metadata(&dir) {
         let current = md.permissions().mode() & 0o777;
         if current == 0 {
@@ -393,15 +395,16 @@ pub fn save_rules(name: &str, rules: &Rules) -> Result<(), ConfigError> {
     Ok(())
 }
 
-fn write_with_mode(path: &Path, data: &[u8], mode: u32) -> io::Result<()> {
+fn write_with_mode(path: &Path, data: &[u8], _mode: u32) -> io::Result<()> {
     use std::io::Write;
-    use std::os::unix::fs::OpenOptionsExt;
-    let mut f = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(mode)
-        .open(path)?;
+    let mut opts = fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(_mode);
+    }
+    let mut f = opts.open(path)?;
     f.write_all(data)?;
     Ok(())
 }
