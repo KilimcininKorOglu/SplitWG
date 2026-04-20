@@ -53,8 +53,8 @@ tun2                       = { version = "4", features = ["async"] }
 x25519-dalek               = "2"
 socket2                    = "0.5"
 libc                       = "0.2"
-maxminddb                  = "0.24"
-ipnetwork                  = "0.20"
+maxminddb                  = "0.27"
+ipnetwork                  = "0.21"
 ureq                       = { version = "3", default-features = false, features = ["rustls"] }
 semver                     = "1"
 minisign-verify            = "0.2"

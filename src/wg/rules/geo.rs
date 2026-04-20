@@ -159,15 +159,11 @@ pub fn expand_country(code: &str) -> Vec<String> {
     let wanted = code.to_ascii_uppercase();
     let mut out = Vec::new();
 
-    // Traverse IPv4 + IPv6 separately. maxminddb 0.24's `within` iterator
-    // yields `WithinItem<T>` whose `ip_net` field is the covered network.
-    // API expects the `ipnetwork::IpNetwork` type (dep of `maxminddb`),
-    // not the `ipnet::IpNet` type used elsewhere in the codebase.
     for net in [
         "0.0.0.0/0".parse::<ipnetwork::IpNetwork>().unwrap(),
         "::/0".parse::<ipnetwork::IpNetwork>().unwrap(),
     ] {
-        let iter = match reader.within::<maxminddb::geoip2::Country>(net) {
+        let iter = match reader.within(net, Default::default()) {
             Ok(it) => it,
             Err(e) => {
                 log::warn!("splitwg: geo: within failed for {net}: {e}");
@@ -175,15 +171,19 @@ pub fn expand_country(code: &str) -> Vec<String> {
             }
         };
         for item in iter.flatten() {
-            let matches_country = item
-                .info
+            let country = match item.decode::<maxminddb::geoip2::Country>() {
+                Ok(Some(c)) => c,
+                _ => continue,
+            };
+            let matches_country = country
                 .country
-                .as_ref()
-                .and_then(|c| c.iso_code)
-                .map(|iso| iso.eq_ignore_ascii_case(&wanted))
+                .iso_code
+                .map(|iso: &str| iso.eq_ignore_ascii_case(&wanted))
                 .unwrap_or(false);
             if matches_country {
-                out.push(item.ip_net.to_string());
+                if let Ok(net) = item.network() {
+                    out.push(net.to_string());
+                }
             }
         }
     }
@@ -215,7 +215,7 @@ pub fn expand_asn(target_asn: u32) -> Vec<String> {
         "0.0.0.0/0".parse::<ipnetwork::IpNetwork>().unwrap(),
         "::/0".parse::<ipnetwork::IpNetwork>().unwrap(),
     ] {
-        let iter = match reader.within::<maxminddb::geoip2::Asn>(net) {
+        let iter = match reader.within(net, Default::default()) {
             Ok(it) => it,
             Err(e) => {
                 log::warn!("splitwg: geo: ASN within failed for {net}: {e}");
@@ -223,8 +223,14 @@ pub fn expand_asn(target_asn: u32) -> Vec<String> {
             }
         };
         for item in iter.flatten() {
-            if item.info.autonomous_system_number == Some(target_asn) {
-                out.push(item.ip_net.to_string());
+            let asn = match item.decode::<maxminddb::geoip2::Asn>() {
+                Ok(Some(a)) => a,
+                _ => continue,
+            };
+            if asn.autonomous_system_number == Some(target_asn) {
+                if let Ok(net) = item.network() {
+                    out.push(net.to_string());
+                }
             }
         }
     }
