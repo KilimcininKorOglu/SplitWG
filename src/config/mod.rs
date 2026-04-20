@@ -393,13 +393,16 @@ pub fn save_rules(name: &str, rules: &Rules) -> Result<(), ConfigError> {
     Ok(())
 }
 
-/// Writes `data` to `path`, then sets the file mode (unix permissions).
-/// Creates the file if missing; truncates if present.
 fn write_with_mode(path: &Path, data: &[u8], mode: u32) -> io::Result<()> {
-    fs::write(path, data)?;
-    let mut perms = fs::metadata(path)?.permissions();
-    perms.set_mode(mode);
-    fs::set_permissions(path, perms)?;
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut f = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(mode)
+        .open(path)?;
+    f.write_all(data)?;
     Ok(())
 }
 

@@ -208,11 +208,15 @@ fn pick_unique_name(base: &str, dir: &Path) -> String {
 }
 
 fn write_with_mode(path: &Path, data: &[u8], mode: u32) -> std::io::Result<()> {
-    use std::os::unix::fs::PermissionsExt;
-    fs::write(path, data)?;
-    let mut p = fs::metadata(path)?.permissions();
-    p.set_mode(mode);
-    fs::set_permissions(path, p)?;
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut f = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(mode)
+        .open(path)?;
+    f.write_all(data)?;
     Ok(())
 }
 
