@@ -134,7 +134,16 @@ pub fn import(src: &Path, password: &str) -> Result<Vec<String>, PackageError> {
 
     let mut imported = Vec::with_capacity(manifest.tunnels.len());
     for t in &manifest.tunnels {
+        if has_forbidden_chars(&t.name) {
+            log::warn!("splitwg: package: skipping tunnel {:?} — forbidden characters in name", t.name);
+            continue;
+        }
         let target_name = pick_unique_name(&t.name, &dir);
+        let probe = dir.join(format!("{target_name}.conf"));
+        if !probe.starts_with(&dir) {
+            log::warn!("splitwg: package: skipping tunnel {:?} — path traversal detected", t.name);
+            continue;
+        }
         log::info!("splitwg: package: importing tunnel {:?} as {:?}", t.name, target_name);
 
         // .conf
@@ -177,6 +186,11 @@ fn map_zip_err(e: zip::result::ZipError) -> PackageError {
         zip::result::ZipError::UnsupportedArchive(_) => PackageError::WrongPassword,
         other => PackageError::Zip(other),
     }
+}
+
+fn has_forbidden_chars(name: &str) -> bool {
+    name.trim().is_empty()
+        || name.contains(|c: char| matches!(c, '/' | '\\' | '\0' | ':' | '.') || c.is_whitespace())
 }
 
 fn pick_unique_name(base: &str, dir: &Path) -> String {
