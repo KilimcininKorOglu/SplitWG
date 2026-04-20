@@ -97,12 +97,13 @@ async fn handle_client(
                 eprintln!("splitwg-svc: pipe: Up for {tunnel_name}");
 
                 let (tx, rx) = watch::channel(false);
-                match Tunnel::bringup(&params, rx).await {
+                match Tunnel::bringup(&params).await {
                     Ok(tunnel) => {
                         let arc = Arc::new(tunnel);
                         let arc2 = arc.clone();
+                        let shutdown_rx2 = rx.clone();
                         let task = tokio::spawn(async move {
-                            arc2.run().await;
+                            let _ = arc2.run(shutdown_rx2).await;
                         });
                         let state = TunnelState {
                             tunnel: arc,
@@ -110,12 +111,12 @@ async fn handle_client(
                             shutdown_tx: tx,
                         };
                         tunnels.lock().await.insert(tunnel_name.clone(), state);
-                        let event = Event::Ready;
+                        let event = Event::Ready { iface: tunnel_name.clone() };
                         let json = serde_json::to_string(&event).unwrap();
                         let _ = writer.write_all(format!("{json}\n").as_bytes()).await;
                     }
                     Err(e) => {
-                        let event = Event::Error(format!("{e:#}"));
+                        let event = Event::Error { message: format!("{e:#}") };
                         let json = serde_json::to_string(&event).unwrap();
                         let _ = writer.write_all(format!("{json}\n").as_bytes()).await;
                     }

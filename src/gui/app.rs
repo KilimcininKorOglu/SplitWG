@@ -1852,6 +1852,7 @@ impl App {
                     ..
                 } = state
                 {
+                    #[cfg(target_os = "macos")]
                     tasks::spawn_update_install(
                         self.task_tx.clone(),
                         ctx.clone(),

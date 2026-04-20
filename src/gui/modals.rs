@@ -376,6 +376,7 @@ pub fn show_prefs(ctx: &egui::Context, flow: &mut PrefsFlow) -> PrefsEvent {
                         .button(i18n::t("gui.prefs.open_login_items_settings"))
                         .clicked()
                     {
+                        #[cfg(target_os = "macos")]
                         crate::gui::login_item::open_login_items_settings();
                     }
                 });

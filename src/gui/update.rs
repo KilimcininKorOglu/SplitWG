@@ -589,6 +589,7 @@ pub fn detect_install_mode(target: &Path) -> InstallMode {
 /// Replaces `current_app` with `new_app`, detaches the mount, and spawns a
 /// fresh `open -n <current_app>` before exiting the process. Never returns
 /// on the happy path — the caller exits 0 as the very last line.
+#[cfg(target_os = "macos")]
 pub fn install_and_relaunch(
     new_app: &Path,
     current_app: &Path,

@@ -376,6 +376,7 @@ pub fn spawn_update_download(
 /// via `open -n`, and exits the current process. Never returns on success
 /// — the process exits 0 before `tx::send` runs. Only the failure path
 /// emits a `TaskResult`.
+#[cfg(target_os = "macos")]
 pub fn spawn_update_install(
     tx: TaskTx,
     ctx: egui::Context,

@@ -71,8 +71,12 @@ pub struct Tunnel {
     /// drop order flushes the anchor (unblocking non-tunnel traffic) before
     /// DNS gets restored and routes come down. `None` when the user has
     /// the kill switch disabled in Settings.
+    #[cfg(target_os = "macos")]
     #[allow(dead_code)]
     pf: Option<pf::PfAnchor>,
+    #[cfg(target_os = "windows")]
+    #[allow(dead_code)]
+    wfp: Option<wfp::WfpAnchor>,
     // `dns` and `routes` only exist for their `Drop` side-effects; the
     // allow suppresses the dead-field lint.
     #[allow(dead_code)]
@@ -196,6 +200,7 @@ impl Tunnel {
         // abort an otherwise-healthy tunnel — the user still sees the
         // attempt in the log and can investigate. When disabled globally,
         // `kill_switch = false` short-circuits the subprocess call.
+        #[cfg(target_os = "macos")]
         let pf = if params.kill_switch {
             eprintln!("splitwg-helper: bringup: loading kill-switch pf anchor for {iface}");
             match pf::PfAnchor::load(&iface) {
@@ -211,7 +216,19 @@ impl Tunnel {
                 }
             }
         } else {
-            eprintln!("splitwg-helper: bringup: kill-switch disabled, skipping pf anchor");
+            None
+        };
+        #[cfg(target_os = "windows")]
+        let wfp = if params.kill_switch {
+            eprintln!("splitwg-svc: bringup: loading kill-switch WFP rules for {iface}");
+            match wfp::WfpAnchor::load(&iface) {
+                Ok(a) => Some(a),
+                Err(e) => {
+                    eprintln!("splitwg-svc: bringup: WFP load failed (non-fatal): {e:#}");
+                    None
+                }
+            }
+        } else {
             None
         };
 
@@ -240,7 +257,10 @@ impl Tunnel {
             udp: Arc::new(udp),
             tunn: Arc::new(Mutex::new(tunn)),
             mtu: params.mtu,
+            #[cfg(target_os = "macos")]
             pf,
+            #[cfg(target_os = "windows")]
+            wfp,
             dns,
             routes,
             pre_down: params.pre_down.clone(),

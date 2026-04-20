@@ -156,6 +156,19 @@ impl Drop for Routes {
     }
 }
 
+pub fn lookup_gateway(_dest: IpAddr) -> Result<Option<IpAddr>> {
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-Command",
+            "(Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1).NextHop"])
+        .output()
+        .context("failed to query default gateway")?;
+    let gw = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if gw.is_empty() {
+        return Ok(None);
+    }
+    Ok(gw.parse().ok())
+}
+
 fn run_route(args: &[&str]) -> Result<()> {
     let status = Command::new("route")
         .args(args)

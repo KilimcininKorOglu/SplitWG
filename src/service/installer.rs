@@ -9,6 +9,7 @@ use std::ffi::OsString;
 /// Returns true if the splitwg service is registered.
 #[cfg(target_os = "windows")]
 pub fn is_installed() -> bool {
+    use windows_service::service::ServiceAccess;
     use windows_service::service_manager::*;
 
     let manager = match ServiceManager::local_computer(

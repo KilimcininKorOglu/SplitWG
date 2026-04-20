@@ -113,6 +113,7 @@ fn rotate270(src: &GrayImage) -> GrayImage {
 // Clipboard access (NSPasteboard)
 // ---------------------------------------------------------------------------
 
+#[cfg(target_os = "macos")]
 fn read_clipboard_image_bytes() -> Option<Vec<u8>> {
     use objc2::rc::autoreleasepool;
     use objc2_app_kit::NSPasteboard;
@@ -133,6 +134,11 @@ fn read_clipboard_image_bytes() -> Option<Vec<u8>> {
         }
         None
     })
+}
+
+#[cfg(target_os = "windows")]
+fn read_clipboard_image_bytes() -> Option<Vec<u8>> {
+    None
 }
 
 #[cfg(test)]

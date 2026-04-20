@@ -22,7 +22,13 @@ impl Dns {
         }
     }
 
-    pub fn apply(&mut self, iface: &str, servers: &[IpAddr]) -> Result<()> {
+    pub fn apply(iface: &str, servers: &[IpAddr]) -> Result<Self> {
+        let mut dns = Self::empty();
+        dns.apply_inner(iface, servers)?;
+        Ok(dns)
+    }
+
+    fn apply_inner(&mut self, iface: &str, servers: &[IpAddr]) -> Result<()> {
         if servers.is_empty() {
             return Ok(());
         }
