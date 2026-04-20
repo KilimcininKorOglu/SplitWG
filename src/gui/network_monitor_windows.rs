@@ -97,14 +97,16 @@ fn check_wired_connection() -> bool {
 }
 
 fn read_local_time() -> LocalTime {
-    unsafe {
-        let t: libc::time_t = libc::time(std::ptr::null_mut());
-        let mut tm: libc::tm = std::mem::zeroed();
-        libc::localtime_r(&t, &mut tm);
-        let weekday = ((tm.tm_wday + 6) % 7) as u8;
-        let hour = tm.tm_hour.clamp(0, 23) as u8;
-        LocalTime { weekday, hour }
-    }
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let secs_in_day = (secs % 86400) as u32;
+    let hour = (secs_in_day / 3600).clamp(0, 23) as u8;
+    let days_since_epoch = (secs / 86400) as u64;
+    let weekday = (((days_since_epoch + 3) % 7) as u8); // epoch=Thursday, +3→Monday=0
+    LocalTime { weekday, hour }
 }
 
 #[cfg(test)]

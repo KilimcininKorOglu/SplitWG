@@ -397,6 +397,7 @@ pub fn verify_minisign(payload: &Path, signature: &Path) -> Result<(), UpdateErr
 }
 
 /// `hdiutil attach -nobrowse -quiet` and parse the mount point.
+#[cfg(target_os = "macos")]
 fn hdiutil_attach(dmg: &Path) -> Result<PathBuf, UpdateError> {
     log::info!("splitwg: update: mounting DMG {:?}", dmg);
     let output = Command::new("/usr/bin/hdiutil")
@@ -418,6 +419,7 @@ fn hdiutil_attach(dmg: &Path) -> Result<PathBuf, UpdateError> {
 
 /// Detaches `mount_point`; silenced because callers already report the
 /// primary error and the tunnel must still return whatever it has.
+#[cfg(target_os = "macos")]
 fn hdiutil_detach(mount_point: &Path) -> io::Result<()> {
     log::info!("splitwg: update: unmounting {:?}", mount_point);
     let status = Command::new("/usr/bin/hdiutil")
@@ -465,6 +467,7 @@ fn find_app_in_mount(mount: &Path) -> Result<PathBuf, UpdateError> {
 /// Copies a directory tree using `/bin/cp -R`, preserving metadata in a
 /// way that `std::fs` does not (extended attributes, symlinks inside
 /// bundles). Keeping the shell-out avoids reimplementing the corner cases.
+#[cfg(target_os = "macos")]
 fn copy_recursive(src: &Path, dst: &Path) -> Result<(), UpdateError> {
     let status = Command::new("/bin/cp")
         .arg("-R")
@@ -514,6 +517,7 @@ pub fn current_app_bundle() -> Option<PathBuf> {
 
 /// Runs `codesign -dv --verbose=4 <app>` and extracts `TeamIdentifier=…`
 /// from stderr. Returns an error when the app is not signed.
+#[cfg(target_os = "macos")]
 pub fn codesign_team_id(app: &Path) -> Result<String, UpdateError> {
     log::info!("splitwg: update: checking codesign for {:?}", app);
     let output = Command::new("/usr/bin/codesign")
@@ -684,6 +688,7 @@ pub fn verify_team_id(expected: &str, actual: &str) -> Result<(), UpdateError> {
 
 /// `spctl -a -vv -t exec <app>` — succeeds only when Gatekeeper accepts the
 /// bundle as a notarized Developer ID build.
+#[cfg(target_os = "macos")]
 pub fn verify_notarization(app: &Path) -> Result<(), UpdateError> {
     log::info!("splitwg: update: verifying notarization for {:?}", app);
     let output = Command::new("/usr/sbin/spctl")

@@ -171,6 +171,7 @@ pub fn lookup_raw(code: &str, key: &str) -> String {
 /// `defaults read -g AppleLanguages` and picking the prefix of the first
 /// entry. Falls back to `$LANG`, then to English on any failure.
 pub fn detect_system_locale() -> Lang {
+    #[cfg(target_os = "macos")]
     if let Ok(out) = std::process::Command::new("defaults")
         .args(["read", "-g", "AppleLanguages"])
         .output()
@@ -182,6 +183,19 @@ pub fn detect_system_locale() -> Lang {
                     log::info!("splitwg: i18n: detected locale from macOS AppleLanguages: {:?}", tag);
                     return lang;
                 }
+            }
+        }
+    }
+    #[cfg(target_os = "windows")]
+    if let Ok(out) = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-Command", "(Get-Culture).TwoLetterISOLanguageName"])
+        .output()
+    {
+        if out.status.success() {
+            let code = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if let Some(lang) = Lang::from_code(&code) {
+                log::info!("splitwg: i18n: detected locale from Windows culture: {:?}", code);
+                return lang;
             }
         }
     }

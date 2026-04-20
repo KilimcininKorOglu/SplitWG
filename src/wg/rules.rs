@@ -169,27 +169,46 @@ fn format_ip_as_host(ip: &IpAddr, original: &str) -> String {
 /// Returns the current default gateway IP address, falling back through
 /// two shell invocations.
 pub fn get_default_gateway() -> Result<String, String> {
-    let primary = Command::new("sh")
-        .arg("-c")
-        .arg("route -n get default 2>/dev/null | grep 'gateway:' | awk '{print $2}'")
-        .output();
-    if let Ok(out) = primary {
-        let gw = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        if !gw.is_empty() {
-            return Ok(gw);
+    #[cfg(target_os = "macos")]
+    {
+        let primary = Command::new("sh")
+            .arg("-c")
+            .arg("route -n get default 2>/dev/null | grep 'gateway:' | awk '{print $2}'")
+            .output();
+        if let Ok(out) = primary {
+            let gw = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !gw.is_empty() {
+                return Ok(gw);
+            }
         }
+        let fallback = Command::new("sh")
+            .arg("-c")
+            .arg("netstat -rn 2>/dev/null | awk '/^default/{print $2; exit}'")
+            .output()
+            .map_err(|e| format!("get default gateway: {}", e))?;
+        let gw = String::from_utf8_lossy(&fallback.stdout).trim().to_string();
+        if gw.is_empty() {
+            return Err("could not determine default gateway".to_string());
+        }
+        return Ok(gw);
     }
 
-    let fallback = Command::new("sh")
-        .arg("-c")
-        .arg("netstat -rn 2>/dev/null | awk '/^default/{print $2; exit}'")
-        .output()
-        .map_err(|e| format!("get default gateway: {}", e))?;
-    let gw = String::from_utf8_lossy(&fallback.stdout).trim().to_string();
-    if gw.is_empty() {
-        return Err("could not determine default gateway".to_string());
+    #[cfg(target_os = "windows")]
+    {
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command",
+                "(Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1).NextHop"])
+            .output()
+            .map_err(|e| format!("get default gateway: {}", e))?;
+        let gw = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if gw.is_empty() {
+            return Err("could not determine default gateway".to_string());
+        }
+        return Ok(gw);
     }
-    Ok(gw)
+
+    #[allow(unreachable_code)]
+    Err("unsupported platform".to_string())
 }
 
 /// Returns a modified WireGuard config where `AllowedIPs` in every `[Peer]`
