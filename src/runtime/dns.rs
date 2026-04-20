@@ -53,6 +53,10 @@ impl Dns {
             let stdin = child.stdin.as_mut().context("scutil stdin missing")?;
             writeln!(stdin, "d.init")?;
             writeln!(stdin, "d.add ServerAddresses * {servers_joined}")?;
+            // Empty SupplementalMatchDomains makes this the DEFAULT resolver
+            // for all domains. Without it, macOS treats the entry as
+            // supplemental and keeps using the (now unreachable) en0 DNS.
+            writeln!(stdin, "d.add SupplementalMatchDomains * \"\"")?;
             writeln!(stdin, "set {key}")?;
             writeln!(stdin, "quit")?;
         }
