@@ -41,8 +41,9 @@ pub fn run_first_time_setup() -> Result<(), String> {
     let helper = locate_helper()?;
     log::info!("splitwg: setup: helper located at {}", helper.display());
     let rule = sudoers_rule(&helper);
+    let escaped_rule = crate::wg::shell_quote(&rule);
     let script = format!(
-        "do shell script \"echo '{rule}' > {path} && chmod 440 {path}\" with administrator privileges",
+        "do shell script \"printf '%s\\n' {escaped_rule} > {path} && chmod 440 {path}\" with administrator privileges",
         path = SUDOERS_PATH,
     );
     log::info!("splitwg: setup: invoking osascript for sudoers installation");
@@ -69,10 +70,12 @@ pub fn run_first_time_setup() -> Result<(), String> {
 fn locate_helper() -> Result<PathBuf, String> {
     if let Ok(env) = std::env::var("SPLITWG_HELPER") {
         log::info!("splitwg: setup: trying SPLITWG_HELPER env: {}", env);
-        let p = PathBuf::from(env);
+        let p = PathBuf::from(&env);
         if p.is_file() {
             log::info!("splitwg: setup: found helper via env override");
-            return Ok(p);
+            return p
+                .canonicalize()
+                .map_err(|e| format!("canonicalize env helper path: {e}"));
         }
     }
     if let Ok(exe) = std::env::current_exe() {
