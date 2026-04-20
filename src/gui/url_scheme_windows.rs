@@ -35,8 +35,9 @@ pub fn register() -> Result<(), String> {
         key.set_value("URL Protocol", &"")
             .map_err(|e| format!("failed to set URL Protocol: {e}"))?;
 
+        let cmd_path = format!(r"{PROTOCOL_KEY}\shell\open\command");
         let (cmd_key, _) = hkcu
-            .create_subkey(&format!(r"{PROTOCOL_KEY}\shell\open\command"))
+            .create_subkey(&cmd_path)
             .map_err(|e| format!("failed to create command key: {e}"))?;
 
         let exe = std::env::current_exe().map_err(|e| format!("failed to get exe path: {e}"))?;

@@ -6,6 +6,11 @@
 //! - [`auth`], [`notify`], [`ui`], [`wg`], [`ipc`], [`i18n`], [`runtime`]
 //!   — the rest of the runtime surface.
 
+#![cfg_attr(
+    target_os = "windows",
+    allow(unused_imports, unused_variables, dead_code, unused_parens)
+)]
+
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 compile_error!("SplitWG supports macOS and Windows only");
 

@@ -107,8 +107,8 @@ fn read_local_time() -> LocalTime {
         .unwrap_or(0);
     let secs_in_day = (secs % 86400) as u32;
     let hour = (secs_in_day / 3600).clamp(0, 23) as u8;
-    let days_since_epoch = (secs / 86400) as u64;
-    let weekday = (((days_since_epoch + 3) % 7) as u8); // epoch=Thursday, +3→Monday=0
+    let days_since_epoch = secs / 86400;
+    let weekday = ((days_since_epoch + 3) % 7) as u8;
     LocalTime { weekday, hour }
 }
 
