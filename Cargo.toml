@@ -15,6 +15,10 @@ path = "src/main.rs"
 name = "splitwg-helper"
 path = "src/bin/helper.rs"
 
+[[bin]]
+name = "splitwg-svc"
+path = "src/bin/service.rs"
+
 [lib]
 name = "splitwg"
 path = "src/lib.rs"
@@ -60,6 +64,10 @@ semver                     = "1"
 minisign-verify            = "0.2"
 sha2                       = "0.10"
 hex                        = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+windows-service            = "0.7"
+winreg                     = "0.55"
 
 [dev-dependencies]
 tokio          = { version = "1", features = ["test-util"] }

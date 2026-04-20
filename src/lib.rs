@@ -6,8 +6,8 @@
 //! - [`auth`], [`notify`], [`ui`], [`wg`], [`ipc`], [`i18n`], [`runtime`]
 //!   — the rest of the runtime surface.
 
-#[cfg(not(target_os = "macos"))]
-compile_error!("SplitWG only supports macOS");
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+compile_error!("SplitWG supports macOS and Windows only");
 
 pub mod auth;
 pub mod config;
@@ -17,4 +17,6 @@ pub mod icon;
 pub mod ipc;
 pub mod notify;
 pub mod runtime;
+#[cfg(target_os = "windows")]
+pub mod service;
 pub mod wg;
