@@ -4,10 +4,14 @@ use std::collections::HashSet;
 
 use thiserror::Error;
 
+#[cfg(target_os = "macos")]
 mod wgbin_darwin;
+#[cfg(target_os = "macos")]
 pub use wgbin_darwin::{WG_BIN, WG_QUICK_BIN};
 
+#[cfg(target_os = "macos")]
 mod admin_darwin;
+#[cfg(target_os = "macos")]
 pub use admin_darwin::{run_as_admin, run_as_admin_osascript, with_path, BREW_PATH};
 
 pub mod conf;

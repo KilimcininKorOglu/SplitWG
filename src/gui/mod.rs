@@ -4,12 +4,14 @@
 //! `ui::run_tray`. Owns the single NSApp/winit event loop for the whole
 //! process; the tray menu is polled from within `App::update`.
 
+#[cfg(target_os = "macos")]
 pub mod activation;
 pub mod app;
 pub mod detail;
 pub mod detail_panel;
 pub mod geodb;
 pub mod log_tail;
+#[cfg(target_os = "macos")]
 pub mod login_item;
 pub mod modals;
 pub mod network_monitor;
