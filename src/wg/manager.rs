@@ -355,6 +355,13 @@ impl Manager {
         }
     }
 
+    pub fn active_names(&self) -> Vec<String> {
+        self.active
+            .read()
+            .map(|m| m.keys().cloned().collect())
+            .unwrap_or_default()
+    }
+
     /// utun names of tunnels this Manager owns. Replaces the old
     /// `wg show interfaces` shell-out.
     pub fn iface_names(&self) -> Vec<String> {

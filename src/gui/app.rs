@@ -942,26 +942,23 @@ impl App {
         self.tray.set_throughput(rx_sum, tx_sum);
     }
 
-    /// Fires a background ping for the selected tunnel every 5 s while the
-    /// Status tab is the front panel. Cooldown is keyed per-tunnel so
-    /// switching between tunnels re-uses the last timestamp. Skipped when
-    /// a manual ping is already in flight to avoid parallel probes.
+    /// Fires a background ping for every active tunnel every 5 s so the
+    /// sparkline collects RTT data continuously. Cooldown is keyed
+    /// per-tunnel. Skipped when a ping is already in flight.
     fn maybe_schedule_rtt_probe(&mut self, ctx: &egui::Context) {
-        if self.active_tab != DetailTab::Status {
-            return;
+        let active_names: Vec<String> = self.mgr.active_names();
+        for name in active_names {
+            self.schedule_rtt_for_tunnel(ctx, &name);
         }
-        let Some(name) = self.selected.clone() else {
-            return;
-        };
+    }
+
+    fn schedule_rtt_for_tunnel(&mut self, ctx: &egui::Context, name: &str) {
         let Some(cfg) = self.configs.iter().find(|c| c.name == name).cloned() else {
             return;
         };
-        if !self.mgr.is_active(&name) {
-            return;
-        }
         if self
             .ping_results
-            .get(&name)
+            .get(name)
             .map(|p| p.inflight)
             .unwrap_or(false)
         {
@@ -969,7 +966,7 @@ impl App {
         }
         let endpoint = self
             .stats
-            .get(&name)
+            .get(name)
             .and_then(|s| s.peers.first().and_then(|p| p.endpoint.clone()))
             .or_else(|| {
                 std::fs::read_to_string(&cfg.file_path)
@@ -982,7 +979,7 @@ impl App {
         let Some(endpoint) = endpoint else {
             return;
         };
-        if let Some(last) = self.last_rtt_ping.get(&name) {
+        if let Some(last) = self.last_rtt_ping.get(name) {
             if last.elapsed() < Duration::from_secs(5) {
                 return;
             }
@@ -993,9 +990,9 @@ impl App {
             .and_then(|body| wg::conf::parse(&body).ok())
             .map(|parsed| parsed.interface.dns.iter().map(|ip| ip.to_string()).collect::<Vec<_>>())
             .unwrap_or_default();
-        self.ping_results.entry(name.clone()).or_default().inflight = true;
-        self.last_rtt_ping.insert(name.clone(), Instant::now());
-        tasks::spawn_ping(self.task_tx.clone(), ctx.clone(), name, endpoint, dns);
+        self.ping_results.entry(name.to_string()).or_default().inflight = true;
+        self.last_rtt_ping.insert(name.to_string(), Instant::now());
+        tasks::spawn_ping(self.task_tx.clone(), ctx.clone(), name.to_string(), endpoint, dns);
     }
 }
 
