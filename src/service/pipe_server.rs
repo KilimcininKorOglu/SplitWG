@@ -23,8 +23,12 @@ pub async fn serve(tunnels: TunnelMap, mut shutdown: watch::Receiver<bool>) {
     use tokio::net::windows::named_pipe::ServerOptions;
 
     loop {
+        // reject_remote_clients prevents network pipe access.
+        // TODO: Add SDDL-based SecurityAttributes via CreateNamedPipeW
+        // to restrict local access to Administrators + SYSTEM only.
         let server = match ServerOptions::new()
             .first_pipe_instance(false)
+            .reject_remote_clients(true)
             .create(PIPE_NAME)
         {
             Ok(s) => s,

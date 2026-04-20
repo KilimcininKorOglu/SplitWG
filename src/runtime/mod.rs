@@ -56,6 +56,13 @@ pub mod timers;
 
 const MAX_PACKET: usize = 65_536;
 
+#[cfg(target_os = "windows")]
+fn tunnel_name_to_guid(name: &str) -> u128 {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::digest(format!("splitwg-tunnel-{name}").as_bytes());
+    u128::from_le_bytes(hash[..16].try_into().unwrap())
+}
+
 /// Live tunnel state owned by the helper for a single `.conf`.
 ///
 /// Ordering matters on drop: the background tasks abort first (tun + udp
@@ -110,10 +117,14 @@ impl Tunnel {
             run_hook("", cmd, HookPhase::PreUp).await?;
         }
 
-        eprintln!("splitwg-helper: bringup: creating utun device (mtu={})", params.mtu);
+        eprintln!("splitwg-helper: bringup: creating tun device (mtu={})", params.mtu);
         let mut cfg = tun2::Configuration::default();
         cfg.mtu(params.mtu).up();
-        let device = tun2::create_as_async(&cfg).context("create utun device")?;
+        #[cfg(target_os = "windows")]
+        cfg.platform_config(|p| {
+            p.device_guid(tunnel_name_to_guid(&params.tunnel));
+        });
+        let device = tun2::create_as_async(&cfg).context("create tun device")?;
         use tun2::AbstractDevice;
         let iface = device.tun_name().context("read utun name")?;
         eprintln!("splitwg-helper: bringup: utun created: {iface}");

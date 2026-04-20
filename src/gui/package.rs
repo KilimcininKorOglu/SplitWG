@@ -218,7 +218,18 @@ fn write_with_mode(path: &Path, data: &[u8], _mode: u32) -> std::io::Result<()> 
     }
     let mut f = opts.open(path)?;
     f.write_all(data)?;
+    #[cfg(target_os = "windows")]
+    restrict_file_acl(path);
     Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn restrict_file_acl(path: &Path) {
+    let path_str = path.to_string_lossy();
+    let user = std::env::var("USERNAME").unwrap_or_else(|_| "SYSTEM".to_string());
+    let _ = std::process::Command::new("icacls")
+        .args([&*path_str, "/inheritance:r", "/grant:r", &format!("{user}:F")])
+        .status();
 }
 
 #[cfg(test)]

@@ -70,7 +70,7 @@ block2                     = "0.6"
 [target.'cfg(windows)'.dependencies]
 windows-service            = "0.7"
 winreg                     = "0.55"
-windows                    = { version = "0.58", features = ["Security_Credentials_UI"] }
+windows                    = { version = "0.58", features = ["Security_Credentials_UI", "Win32_Security", "Win32_Foundation", "Win32_System_Pipes"] }
 
 [dev-dependencies]
 tokio          = { version = "1", features = ["test-util"] }
