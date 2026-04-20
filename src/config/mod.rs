@@ -609,8 +609,11 @@ mod tests {
         copy_config_file(&src, "vpn2").unwrap();
         let dst = home.join(".config/splitwg/vpn2.conf");
         assert!(dst.exists());
-        let perms = fs::metadata(&dst).unwrap().permissions();
-        assert_eq!(perms.mode() & 0o777, 0o600);
+        #[cfg(unix)]
+        {
+            let perms = fs::metadata(&dst).unwrap().permissions();
+            assert_eq!(perms.mode() & 0o777, 0o600);
+        }
     }
 
     #[test]
@@ -641,9 +644,12 @@ mod tests {
         let got = load_settings();
         assert_eq!(got, want);
 
-        let path = settings_path();
-        let perms = fs::metadata(&path).unwrap().permissions();
-        assert_eq!(perms.mode() & 0o777, 0o644);
+        #[cfg(unix)]
+        {
+            let path = settings_path();
+            let perms = fs::metadata(&path).unwrap().permissions();
+            assert_eq!(perms.mode() & 0o777, 0o644);
+        }
     }
 
     #[test]

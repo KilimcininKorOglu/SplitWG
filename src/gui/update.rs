@@ -951,6 +951,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn cleanup_stale_downloads_removes_old_files() {
         let scratch = std::env::temp_dir().join(format!("splitwg-cleanup-{}", std::process::id()));
         fs::create_dir_all(&scratch).unwrap();

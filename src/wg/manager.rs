@@ -510,9 +510,7 @@ fn read_ready_from_transport(
             for line in rx {
                 match serde_json::from_str::<IpcEvent>(&line) {
                     Ok(ev @ (IpcEvent::Stats { .. } | IpcEvent::Handshake { .. })) => {
-                        if event_fwd.send((tunnel_name.clone(), ev)).is_err() {
-                            break;
-                        }
+                        let _ = event_fwd.send((tunnel_name.clone(), ev));
                     }
                     Ok(IpcEvent::Error { message }) => {
                         log::warn!("splitwg: helper[{tunnel_name}]: error: {message}");
@@ -653,6 +651,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn helper_path_reads_env_override() {
         let path = std::env::temp_dir().join("splitwg-helper-test-shim");
         std::fs::write(&path, b"#!/bin/sh\n").unwrap();
