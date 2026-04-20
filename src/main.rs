@@ -4,6 +4,7 @@
 
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::os::unix::fs::OpenOptionsExt;
 use std::sync::Mutex;
 
 use splitwg::{config, gui, i18n};
@@ -106,6 +107,7 @@ fn init_file_logging() {
         OpenOptions::new()
             .create(true)
             .append(true)
+            .mode(0o600)
             .open(path)
             .ok()
     });
