@@ -25,14 +25,18 @@ pub fn start(ctx: egui::Context, state: Arc<RwLock<NetState>>, notify: Sender<Ne
             if first {
                 log::info!(
                     "splitwg: network_monitor: initial state ssid={:?} wifi={} wired={}",
-                    next.active_ssid, next.wifi_up, next.wired_up
+                    next.active_ssid,
+                    next.wifi_up,
+                    next.wired_up
                 );
                 first = false;
             }
             if changed {
                 log::info!(
                     "splitwg: network_monitor: state changed ssid={:?} wifi={} wired={}",
-                    next.active_ssid, next.wifi_up, next.wired_up
+                    next.active_ssid,
+                    next.wifi_up,
+                    next.wired_up
                 );
                 if let Ok(mut guard) = state.write() {
                     *guard = next.clone();
@@ -88,9 +92,8 @@ fn check_wired_connection() -> bool {
     match out {
         Ok(output) if output.status.success() => {
             let text = String::from_utf8_lossy(&output.stdout);
-            text.lines().any(|line| {
-                line.contains("Connected") && line.contains("Ethernet")
-            })
+            text.lines()
+                .any(|line| line.contains("Connected") && line.contains("Ethernet"))
         }
         _ => false,
     }

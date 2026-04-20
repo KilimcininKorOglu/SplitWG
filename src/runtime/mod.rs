@@ -98,7 +98,10 @@ pub struct Tunnel {
 
 impl Tunnel {
     pub async fn bringup(params: &UpParams) -> Result<Self> {
-        eprintln!("splitwg-helper: bringup: start (endpoint={})", params.endpoint);
+        eprintln!(
+            "splitwg-helper: bringup: start (endpoint={})",
+            params.endpoint
+        );
 
         let static_secret = load_static_secret(&params.interface_key)?;
         let peer_public = load_peer_public(&params.peer_key)?;
@@ -117,7 +120,10 @@ impl Tunnel {
             run_hook("", cmd, HookPhase::PreUp).await?;
         }
 
-        eprintln!("splitwg-helper: bringup: creating tun device (mtu={})", params.mtu);
+        eprintln!(
+            "splitwg-helper: bringup: creating tun device (mtu={})",
+            params.mtu
+        );
         let mut cfg = tun2::Configuration::default();
         cfg.mtu(params.mtu).up();
         #[cfg(target_os = "windows")]
@@ -131,9 +137,7 @@ impl Tunnel {
 
         for cidr in &params.addresses {
             eprintln!("splitwg-helper: bringup: assigning address {cidr} to {iface}");
-            let net: IpNet = cidr
-                .parse()
-                .map_err(|e| anyhow!("address `{cidr}`: {e}"))?;
+            let net: IpNet = cidr.parse().map_err(|e| anyhow!("address `{cidr}`: {e}"))?;
             apply_address(&iface, &net).with_context(|| format!("ifconfig {iface} {cidr}"))?;
         }
 
@@ -141,22 +145,26 @@ impl Tunnel {
             SocketAddr::V4(_) => "0.0.0.0:0".parse().unwrap(),
             SocketAddr::V6(_) => "[::]:0".parse().unwrap(),
         };
-        eprintln!("splitwg-helper: bringup: binding UDP socket ({})", bind_addr);
+        eprintln!(
+            "splitwg-helper: bringup: binding UDP socket ({})",
+            bind_addr
+        );
         let udp = UdpSocket::bind(bind_addr)
             .await
             .with_context(|| format!("bind UDP ({bind_addr})"))?;
         udp.connect(params.endpoint)
             .await
             .with_context(|| format!("connect UDP ({})", params.endpoint))?;
-        eprintln!("splitwg-helper: bringup: UDP connected to {}", params.endpoint);
+        eprintln!(
+            "splitwg-helper: bringup: UDP connected to {}",
+            params.endpoint
+        );
 
         // Gateway: prefer host-supplied value; fall back to `route get` so we
         // can still install endpoint bypass / exclude routes from the helper.
         let gateway = match params.gateway {
             Some(g) => Some(g),
-            None => routing::lookup_gateway(params.endpoint.ip())
-                .ok()
-                .flatten(),
+            None => routing::lookup_gateway(params.endpoint.ip()).ok().flatten(),
         };
 
         let mut routes = routing::Routes::new(&iface);
@@ -171,7 +179,10 @@ impl Tunnel {
             eprintln!("splitwg-helper: no gateway known, skipping endpoint bypass");
         }
 
-        eprintln!("splitwg-helper: bringup: applying {} tunnel route(s)", params.allowed_ips.len());
+        eprintln!(
+            "splitwg-helper: bringup: applying {} tunnel route(s)",
+            params.allowed_ips.len()
+        );
         let allowed_nets: Vec<IpNet> = params
             .allowed_ips
             .iter()
@@ -183,7 +194,10 @@ impl Tunnel {
         eprintln!("splitwg-helper: bringup: tunnel routes applied");
 
         if matches!(params.mode, TunnelMode::Exclude) && !params.exclude_entries.is_empty() {
-            eprintln!("splitwg-helper: bringup: applying {} exclude route(s)", params.exclude_entries.len());
+            eprintln!(
+                "splitwg-helper: bringup: applying {} exclude route(s)",
+                params.exclude_entries.len()
+            );
             if let Some(gw) = gateway {
                 let exclude_nets: Vec<IpNet> = params
                     .exclude_entries
@@ -202,7 +216,10 @@ impl Tunnel {
             }
         }
 
-        eprintln!("splitwg-helper: bringup: applying DNS {:?} on {iface}", params.dns);
+        eprintln!(
+            "splitwg-helper: bringup: applying DNS {:?} on {iface}",
+            params.dns
+        );
         let dns = dns::Dns::apply(&iface, &params.dns)
             .with_context(|| format!("apply DNS on {iface}"))?;
         eprintln!("splitwg-helper: bringup: DNS applied");
@@ -245,7 +262,10 @@ impl Tunnel {
 
         // PostUp hooks — fired after the tunnel is ready. Failure is log-only
         // so a broken hook cannot poison a live tunnel that is already up.
-        eprintln!("splitwg-helper: bringup: running {} PostUp hook(s)", params.post_up.len());
+        eprintln!(
+            "splitwg-helper: bringup: running {} PostUp hook(s)",
+            params.post_up.len()
+        );
         for cmd in &params.post_up {
             if let Err(e) = run_hook(&iface, cmd, HookPhase::PostUp).await {
                 eprintln!("splitwg-helper: bringup: PostUp failed (non-fatal): {e:#}");
@@ -259,7 +279,14 @@ impl Tunnel {
         let our_public = PublicKey::from(&static_secret);
         let index_table = IndexTable::from_os_rng();
         let rate_limiter = Arc::new(RateLimiter::new(&our_public, 100));
-        let tunn = Tunn::new(static_secret, peer_public, psk, params.keepalive, index_table, rate_limiter);
+        let tunn = Tunn::new(
+            static_secret,
+            peer_public,
+            psk,
+            params.keepalive,
+            index_table,
+            rate_limiter,
+        );
         eprintln!("splitwg-helper: bringup: tunnel ready on {iface}");
 
         Ok(Self {
@@ -295,7 +322,10 @@ impl Tunnel {
 
         eprintln!("splitwg-helper: shutdown: starting teardown on {iface}");
 
-        eprintln!("splitwg-helper: shutdown: running {} PreDown hook(s)", pre_down.len());
+        eprintln!(
+            "splitwg-helper: shutdown: running {} PreDown hook(s)",
+            pre_down.len()
+        );
         for cmd in &pre_down {
             if let Err(e) = run_hook(&iface, cmd, HookPhase::PreDown).await {
                 eprintln!("splitwg-helper: shutdown: PreDown failed (non-fatal): {e:#}");
@@ -306,7 +336,10 @@ impl Tunnel {
         drop(self);
         eprintln!("splitwg-helper: shutdown: tunnel resources released");
 
-        eprintln!("splitwg-helper: shutdown: running {} PostDown hook(s)", post_down.len());
+        eprintln!(
+            "splitwg-helper: shutdown: running {} PostDown hook(s)",
+            post_down.len()
+        );
         for cmd in &post_down {
             if let Err(e) = run_hook(&iface, cmd, HookPhase::PostDown).await {
                 eprintln!("splitwg-helper: shutdown: PostDown failed (non-fatal): {e:#}");
@@ -358,11 +391,10 @@ impl Tunnel {
                     let to_send = {
                         let mut t = tunn.lock().await;
                         let packet = Packet::copy_from(&buf[..n]);
-                        t.handle_outgoing_packet(packet, None)
-                            .map(|wg| {
-                                let pkt: Packet = Packet::from(wg);
-                                pkt.to_vec()
-                            })
+                        t.handle_outgoing_packet(packet, None).map(|wg| {
+                            let pkt: Packet = Packet::from(wg);
+                            pkt.to_vec()
+                        })
                     };
                     if let Some(b) = to_send {
                         if let Err(e) = udp.send(&b).await {
@@ -407,9 +439,7 @@ impl Tunnel {
                                 let pkt: Packet = Packet::from(reply);
                                 (Some(pkt.to_vec()), None)
                             }
-                            TunnResult::WriteToTunnel(pkt) => {
-                                (None, Some(pkt.to_vec()))
-                            }
+                            TunnResult::WriteToTunnel(pkt) => (None, Some(pkt.to_vec())),
                         }
                     };
                     if let Some(b) = net_reply {
@@ -442,7 +472,10 @@ impl Tunnel {
     /// `shutdown()` for ordered PreDown/teardown/PostDown. Consumes `self` so
     /// the helper doesn't have to juggle ownership with `Arc::try_unwrap`.
     pub async fn run_and_teardown(self, rx: watch::Receiver<bool>) -> Result<()> {
-        eprintln!("splitwg-helper: tunnel: data plane running on {}", self.iface);
+        eprintln!(
+            "splitwg-helper: tunnel: data plane running on {}",
+            self.iface
+        );
         self.run(rx).await?;
         eprintln!("splitwg-helper: tunnel: data plane stopped, beginning shutdown");
         self.shutdown().await;
@@ -626,10 +659,7 @@ mod tests {
     #[tokio::test]
     async fn run_hook_substitutes_iface_in_command() {
         // Writes the iface name into a unique temp file; we read it back.
-        let tmp = std::env::temp_dir().join(format!(
-            "splitwg-hook-test-{}",
-            std::process::id()
-        ));
+        let tmp = std::env::temp_dir().join(format!("splitwg-hook-test-{}", std::process::id()));
         let _ = std::fs::remove_file(&tmp);
         let cmd = format!("printf %i > {}", tmp.display());
         run_hook("utun42", &cmd, HookPhase::PostUp)

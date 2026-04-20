@@ -63,8 +63,8 @@ pub fn run() -> eframe::Result<()> {
         "SplitWG",
         options,
         Box::new(|cc| {
-            let app = app::App::new(cc)
-                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+            let app =
+                app::App::new(cc).map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
                     Box::<dyn std::error::Error + Send + Sync>::from(e.to_string())
                 })?;
             Ok(Box::new(app))

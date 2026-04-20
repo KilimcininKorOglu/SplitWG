@@ -116,8 +116,7 @@ pub const TEMPLATES: &[RuleTemplate] = &[
 /// present are skipped. Callers use the return count for the "added N"
 /// notification.
 pub fn apply_template(current: &mut Rules, tmpl: &RuleTemplate) -> usize {
-    let existing: std::collections::HashSet<String> =
-        current.entries.iter().cloned().collect();
+    let existing: std::collections::HashSet<String> = current.entries.iter().cloned().collect();
     let mut added = 0usize;
     for cidr in tmpl.entries {
         if !existing.contains(*cidr) {
@@ -155,10 +154,7 @@ mod tests {
             hooks_enabled: false,
             on_demand: None,
         };
-        let tmpl = &TEMPLATES
-            .iter()
-            .find(|t| t.key == "youtube_cdn")
-            .unwrap();
+        let tmpl = &TEMPLATES.iter().find(|t| t.key == "youtube_cdn").unwrap();
         let added = apply_template(&mut rules, tmpl);
         assert_eq!(added, tmpl.entries.len() - 1);
         assert!(rules.entries.contains(&"74.125.0.0/16".to_string()));

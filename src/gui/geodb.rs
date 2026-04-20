@@ -175,7 +175,11 @@ pub fn pull_once() -> Result<PullOutcome, GeoDbError> {
             let _ = fs::remove_file(&tmp);
             return Err(GeoDbError::Digest((*edition).to_string()));
         }
-        log::info!("splitwg: geodb: verified and wrote {} ({} bytes)", edition, bytes_written);
+        log::info!(
+            "splitwg: geodb: verified and wrote {} ({} bytes)",
+            edition,
+            bytes_written
+        );
         fs::rename(&tmp, &dst)?;
         outcome.updated.push((*edition).to_string());
         outcome.total_bytes = outcome.total_bytes.saturating_add(bytes_written);
@@ -214,10 +218,7 @@ fn http_get_string(url: &str) -> Result<String, GeoDbError> {
 /// Streams `url` into `dest`, returning `(bytes_written, sha256_hex)`.
 /// No progress reporting — the files are tiny by GitHub-raw standards
 /// (≤70 MiB) and the UI only renders a single spinner.
-fn download_to_file_with_digest(
-    url: &str,
-    dest: &Path,
-) -> Result<(u64, String), GeoDbError> {
+fn download_to_file_with_digest(url: &str, dest: &Path) -> Result<(u64, String), GeoDbError> {
     let agent = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(120)))
         .build()
@@ -290,19 +291,14 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  GeoLite2-ASN.m
 
     #[test]
     fn needs_update_true_when_file_missing() {
-        let path = std::env::temp_dir().join(format!(
-            "splitwg-geodb-missing-{}.mmdb",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("splitwg-geodb-missing-{}.mmdb", std::process::id()));
         assert!(needs_update(&path, "deadbeef"));
     }
 
     #[test]
     fn needs_update_false_when_hash_matches() {
-        let dir = std::env::temp_dir().join(format!(
-            "splitwg-geodb-match-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("splitwg-geodb-match-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("sample.mmdb");
         fs::write(&path, b"hello world").unwrap();
@@ -314,10 +310,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  GeoLite2-ASN.m
 
     #[test]
     fn needs_update_true_when_hash_differs() {
-        let dir = std::env::temp_dir().join(format!(
-            "splitwg-geodb-diff-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("splitwg-geodb-diff-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("sample.mmdb");
         fs::write(&path, b"hello world").unwrap();
@@ -330,6 +323,8 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  GeoLite2-ASN.m
         assert!(cooldown_elapsed(None));
         let now = now_epoch();
         assert!(!cooldown_elapsed(Some(now)));
-        assert!(cooldown_elapsed(Some(now.saturating_sub(COOLDOWN_SECS + 1))));
+        assert!(cooldown_elapsed(Some(
+            now.saturating_sub(COOLDOWN_SECS + 1)
+        )));
     }
 }

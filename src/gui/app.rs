@@ -377,10 +377,7 @@ impl App {
                 log::warn!("splitwg: url_scheme: tunnel not found: {name}");
                 notify::error(
                     &i18n::t("notify.splitwg"),
-                    &i18n::t_with(
-                        "notify.url_scheme.unknown_tunnel",
-                        &[("name", &name)],
-                    ),
+                    &i18n::t_with("notify.url_scheme.unknown_tunnel", &[("name", &name)]),
                 );
                 continue;
             };
@@ -458,12 +455,16 @@ impl App {
     /// reads, replacing the old `wg show dump` path.
     fn drain_ipc_events(&mut self) {
         for (name, ev) in self.mgr.drain_events() {
-            let peer_key = self.peer_key_cache.entry(name.clone()).or_insert_with(|| {
-                wg::conf::first_peer_public_key_base64(
-                    &std::fs::read_to_string(config::conf_path(&name)).unwrap_or_default(),
-                )
-                .unwrap_or_default()
-            }).clone();
+            let peer_key = self
+                .peer_key_cache
+                .entry(name.clone())
+                .or_insert_with(|| {
+                    wg::conf::first_peer_public_key_base64(
+                        &std::fs::read_to_string(config::conf_path(&name)).unwrap_or_default(),
+                    )
+                    .unwrap_or_default()
+                })
+                .clone();
             match ev {
                 IpcEvent::Stats { tx_bytes, rx_bytes } => {
                     let entry = self.stats.entry(name.clone()).or_default();
@@ -527,10 +528,7 @@ impl App {
                 }
                 TaskResult::RulesApplied(name) => {
                     self.in_progress.remove(&name);
-                    notify::info(
-                        &i18n::t("notify.splitwg"),
-                        &i18n::t("notify.rules_applied"),
-                    );
+                    notify::info(&i18n::t("notify.splitwg"), &i18n::t("notify.rules_applied"));
                     self.last_refresh = Instant::now() - Duration::from_secs(10);
                     let _ = name;
                 }
@@ -539,10 +537,7 @@ impl App {
                     entry.inflight = false;
                     entry.last_ms = result;
                     entry.last_was_timeout = result.is_none();
-                    self.rtt_history
-                        .entry(name)
-                        .or_default()
-                        .record(result);
+                    self.rtt_history.entry(name).or_default().record(result);
                 }
                 TaskResult::OnDemandTriggered { name, connected } => {
                     self.in_progress.remove(&name);
@@ -551,7 +546,10 @@ impl App {
                     } else {
                         "notify.on_demand.deactivated"
                     };
-                    notify::info(&i18n::t("notify.splitwg"), &i18n::t_with(key, &[("name", &name)]));
+                    notify::info(
+                        &i18n::t("notify.splitwg"),
+                        &i18n::t_with(key, &[("name", &name)]),
+                    );
                     self.last_refresh = Instant::now() - Duration::from_secs(10);
                 }
                 TaskResult::UpdateAvailable {
@@ -564,10 +562,7 @@ impl App {
                     self.update_check_inflight = false;
                     notify::info(
                         &i18n::t("notify.update.available_title"),
-                        &i18n::t_with(
-                            "notify.update.available_body",
-                            &[("version", &version)],
-                        ),
+                        &i18n::t_with("notify.update.available_body", &[("version", &version)]),
                     );
                     self.pending_update = Some(PendingUpdate::Announced {
                         version,
@@ -585,10 +580,7 @@ impl App {
                     if user_initiated {
                         notify::info(
                             &i18n::t("notify.splitwg"),
-                            &i18n::t_with(
-                                "notify.update.up_to_date",
-                                &[("version", &version)],
-                            ),
+                            &i18n::t_with("notify.update.up_to_date", &[("version", &version)]),
                         );
                     }
                 }
@@ -601,10 +593,7 @@ impl App {
                     if user_initiated {
                         notify::error(
                             &i18n::t("notify.splitwg"),
-                            &i18n::t_with(
-                                "notify.update.check_failed",
-                                &[("error", &message)],
-                            ),
+                            &i18n::t_with("notify.update.check_failed", &[("error", &message)]),
                         );
                     }
                 }
@@ -646,21 +635,14 @@ impl App {
                     });
                 }
                 TaskResult::UpdateVerificationFailed { version, reason } => {
-                    log::warn!(
-                        "gui: update: verification failed for {version}: {reason}"
-                    );
+                    log::warn!("gui: update: verification failed for {version}: {reason}");
                     self.pending_update = Some(PendingUpdate::Failed { version, reason });
                 }
                 TaskResult::UpdateInstallFailed { version, reason } => {
-                    log::warn!(
-                        "gui: update: install failed for {version}: {reason}"
-                    );
+                    log::warn!("gui: update: install failed for {version}: {reason}");
                     notify::error(
                         &i18n::t("notify.splitwg"),
-                        &i18n::t_with(
-                            "notify.update.install_failed",
-                            &[("reason", &reason)],
-                        ),
+                        &i18n::t_with("notify.update.install_failed", &[("reason", &reason)]),
                     );
                     self.pending_update = Some(PendingUpdate::Failed { version, reason });
                 }
@@ -699,10 +681,7 @@ impl App {
                     if user_initiated {
                         notify::error(
                             &i18n::t("notify.splitwg"),
-                            &i18n::t_with(
-                                "notify.geodb.update_failed",
-                                &[("error", &message)],
-                            ),
+                            &i18n::t_with("notify.geodb.update_failed", &[("error", &message)]),
                         );
                     }
                 }
@@ -713,31 +692,20 @@ impl App {
                         entry.consecutive_failures = 0;
                         notify::info(
                             &i18n::t("notify.splitwg"),
-                            &i18n::t_with(
-                                "notify.watchdog.succeeded",
-                                &[("name", &name)],
-                            ),
+                            &i18n::t_with("notify.watchdog.succeeded", &[("name", &name)]),
                         );
                         self.last_refresh = Instant::now() - Duration::from_secs(10);
                     } else {
-                        entry.consecutive_failures =
-                            entry.consecutive_failures.saturating_add(1);
+                        entry.consecutive_failures = entry.consecutive_failures.saturating_add(1);
                         if entry.consecutive_failures >= 3 {
-                            entry.cooldown_until =
-                                Some(Instant::now() + Duration::from_secs(600));
+                            entry.cooldown_until = Some(Instant::now() + Duration::from_secs(600));
                             entry.consecutive_failures = 0;
                             notify::info(
                                 &i18n::t("notify.splitwg"),
-                                &i18n::t_with(
-                                    "notify.watchdog.cooldown",
-                                    &[("name", &name)],
-                                ),
+                                &i18n::t_with("notify.watchdog.cooldown", &[("name", &name)]),
                             );
                         } else {
-                            notify::error(
-                                &i18n::t("notify.watchdog.failed"),
-                                &name,
-                            );
+                            notify::error(&i18n::t("notify.watchdog.failed"), &name);
                         }
                     }
                 }
@@ -769,8 +737,7 @@ impl App {
             let Some(rule) = cfg.rules.on_demand.as_ref() else {
                 continue;
             };
-            let is_active = self.mgr.is_active(&cfg.name)
-;
+            let is_active = self.mgr.is_active(&cfg.name);
             let desired = on_demand::decide(rule, state);
             let group = rule
                 .exclusive_group
@@ -817,12 +784,11 @@ impl App {
         std::thread::spawn(move || {
             let name = cfg.name.clone();
             let result = if connect {
-                tasks::ensure_connected(&mgr, &cfg, false)
-                    .map_err(|e| match e {
-                        tasks::ConnectError::SetupFailed(msg)
-                        | tasks::ConnectError::ConnectFailed(msg) => msg,
-                        tasks::ConnectError::AuthDenied => "auth denied".into(),
-                    })
+                tasks::ensure_connected(&mgr, &cfg, false).map_err(|e| match e {
+                    tasks::ConnectError::SetupFailed(msg)
+                    | tasks::ConnectError::ConnectFailed(msg) => msg,
+                    tasks::ConnectError::AuthDenied => "auth denied".into(),
+                })
             } else {
                 mgr.disconnect(&name).map_err(|e| e.to_string())
             };
@@ -938,12 +904,9 @@ impl App {
         // Here we just update the per-second throughput history.
         for cfg in &self.configs {
             if let Some(stats) = self.stats.get(&cfg.name) {
-                let (rx_total, tx_total) = stats
-                    .peers
-                    .iter()
-                    .fold((0u64, 0u64), |(r, t), p| {
-                        (r.saturating_add(p.rx_bytes), t.saturating_add(p.tx_bytes))
-                    });
+                let (rx_total, tx_total) = stats.peers.iter().fold((0u64, 0u64), |(r, t), p| {
+                    (r.saturating_add(p.rx_bytes), t.saturating_add(p.tx_bytes))
+                });
                 self.transfer_history
                     .entry(cfg.name.clone())
                     .and_modify(|h| {
@@ -975,13 +938,13 @@ impl App {
         // Aggregate latest throughput across all active tunnels and push
         // the total into the tray tooltip. `TransferHistory::latest()`
         // reads without mutating, so no sample is consumed here.
-        let (rx_sum, tx_sum) = self
-            .transfer_history
-            .values()
-            .fold((0.0f32, 0.0f32), |(r, t), h| {
-                let (rr, tt) = h.latest();
-                (r + rr, t + tt)
-            });
+        let (rx_sum, tx_sum) =
+            self.transfer_history
+                .values()
+                .fold((0.0f32, 0.0f32), |(r, t), h| {
+                    let (rr, tt) = h.latest();
+                    (r + rr, t + tt)
+                });
         self.tray.set_throughput(rx_sum, tx_sum);
     }
 
@@ -1016,7 +979,11 @@ impl App {
                     .ok()
                     .and_then(|body| wg::conf::parse(&body).ok())
                     .and_then(|parsed| {
-                        parsed.peers.first().and_then(|p| p.endpoint).map(|e| e.to_string())
+                        parsed
+                            .peers
+                            .first()
+                            .and_then(|p| p.endpoint)
+                            .map(|e| e.to_string())
                     })
             });
         let Some(endpoint) = endpoint else {
@@ -1031,11 +998,27 @@ impl App {
         let dns: Vec<String> = std::fs::read_to_string(&cfg.file_path)
             .ok()
             .and_then(|body| wg::conf::parse(&body).ok())
-            .map(|parsed| parsed.interface.dns.iter().map(|ip| ip.to_string()).collect::<Vec<_>>())
+            .map(|parsed| {
+                parsed
+                    .interface
+                    .dns
+                    .iter()
+                    .map(|ip| ip.to_string())
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default();
-        self.ping_results.entry(name.to_string()).or_default().inflight = true;
+        self.ping_results
+            .entry(name.to_string())
+            .or_default()
+            .inflight = true;
         self.last_rtt_ping.insert(name.to_string(), Instant::now());
-        tasks::spawn_ping(self.task_tx.clone(), ctx.clone(), name.to_string(), endpoint, dns);
+        tasks::spawn_ping(
+            self.task_tx.clone(),
+            ctx.clone(),
+            name.to_string(),
+            endpoint,
+            dns,
+        );
     }
 }
 
@@ -1056,8 +1039,7 @@ struct Candidate {
 /// desired state is not `Connect` are always considered winners (the
 /// constraint only matters for Connect arbitration).
 fn select_group_winners(candidates: &[Candidate]) -> std::collections::HashSet<usize> {
-    let mut winners: std::collections::HashSet<usize> =
-        (0..candidates.len()).collect();
+    let mut winners: std::collections::HashSet<usize> = (0..candidates.len()).collect();
 
     // Bucket Connect candidates by group.
     let mut by_group: std::collections::HashMap<&str, Vec<usize>> =
@@ -1231,8 +1213,7 @@ impl eframe::App for App {
             DetailEvent::None => {}
             DetailEvent::ToggleTunnel(name) => {
                 if let Some(cfg) = self.configs.iter().find(|c| c.name == name).cloned() {
-                    let is_active = self.mgr.is_active(&cfg.name)
-        ;
+                    let is_active = self.mgr.is_active(&cfg.name);
                     self.in_progress.insert(name.clone());
                     // Manual toggle shields the tunnel from on-demand
                     // overrides until the user restarts or edits the rule.
@@ -1267,19 +1248,19 @@ impl eframe::App for App {
                 let dns: Vec<String> = std::fs::read_to_string(config::conf_path(&name))
                     .ok()
                     .and_then(|body| wg::conf::parse(&body).ok())
-                    .map(|parsed| parsed.interface.dns.iter().map(|ip| ip.to_string()).collect::<Vec<_>>())
+                    .map(|parsed| {
+                        parsed
+                            .interface
+                            .dns
+                            .iter()
+                            .map(|ip| ip.to_string())
+                            .collect::<Vec<_>>()
+                    })
                     .unwrap_or_default();
-                tasks::spawn_ping(
-                    self.task_tx.clone(),
-                    ctx.clone(),
-                    name,
-                    endpoint,
-                    dns,
-                );
+                tasks::spawn_ping(self.task_tx.clone(), ctx.clone(), name, endpoint, dns);
             }
             DetailEvent::EditConfig(name) => {
-                self.config_editor_flow =
-                    Some(ConfigEditorFlow::open(&name));
+                self.config_editor_flow = Some(ConfigEditorFlow::open(&name));
             }
             DetailEvent::Rename(name) => {
                 self.rename_flow = Some(RenameFlow {
@@ -1293,9 +1274,7 @@ impl eframe::App for App {
 
         // Re-apply the viewport title each frame so a language change picks
         // up the new string without closing the window.
-        ctx.send_viewport_cmd(egui::ViewportCommand::Title(
-            i18n::t("gui.window.title"),
-        ));
+        ctx.send_viewport_cmd(egui::ViewportCommand::Title(i18n::t("gui.window.title")));
     }
 }
 
@@ -1323,10 +1302,7 @@ impl App {
             .collect();
 
         if confs.is_empty() {
-            log::info!(
-                "splitwg: drop: ignored {} non-.conf file(s)",
-                dropped.len()
-            );
+            log::info!("splitwg: drop: ignored {} non-.conf file(s)", dropped.len());
             notify::info(
                 &i18n::t("notify.splitwg"),
                 &i18n::t("notify.drop.not_a_conf"),
@@ -1456,21 +1432,15 @@ impl App {
                         if let Err(e) = outcome {
                             notify::error(
                                 &i18n::t("notify.splitwg"),
-                                &format!(
-                                    "{}: {}",
-                                    i18n::t("notify.login_item_failed"),
-                                    e
-                                ),
+                                &format!("{}: {}", i18n::t("notify.login_item_failed"), e),
                             );
                         }
                     }
                     match config::save_settings(&draft) {
                         Ok(()) => {
                             if draft.language != original.language {
-                                if let Some(lang) = draft
-                                    .language
-                                    .as_deref()
-                                    .and_then(i18n::Lang::from_code)
+                                if let Some(lang) =
+                                    draft.language.as_deref().and_then(i18n::Lang::from_code)
                                 {
                                     i18n::set_current(lang);
                                     self.tray.force_refresh();
@@ -1508,8 +1478,7 @@ impl App {
                     match config::copy_config_file(&flow.src, &stem) {
                         Ok(()) => {
                             self.selected = Some(stem.clone());
-                            self.last_refresh =
-                                Instant::now() - Duration::from_secs(10);
+                            self.last_refresh = Instant::now() - Duration::from_secs(10);
                             notify::info(&i18n::t("notify.splitwg"), &stem);
                         }
                         Err(e) => {
@@ -1542,8 +1511,7 @@ impl App {
                             if self.selected.as_deref() == Some(name.as_str()) {
                                 self.selected = None;
                             }
-                            self.last_refresh =
-                                Instant::now() - Duration::from_secs(10);
+                            self.last_refresh = Instant::now() - Duration::from_secs(10);
                             notify::info(&i18n::t("notify.splitwg"), &name);
                         }
                         Err(e) => {
@@ -1617,20 +1585,15 @@ impl App {
                                     &[("count", &names.len().to_string())],
                                 ),
                             );
-                            self.last_refresh =
-                                Instant::now() - Duration::from_secs(10);
+                            self.last_refresh = Instant::now() - Duration::from_secs(10);
                             self.import_flow = None;
                         }
                         Err(package::PackageError::WrongPassword) => {
-                            flow.last_error =
-                                Some(i18n::t("gui.import.wrong_password"));
+                            flow.last_error = Some(i18n::t("gui.import.wrong_password"));
                         }
                         Err(e) => {
-                            flow.last_error = Some(format!(
-                                "{}: {}",
-                                i18n::t("gui.import.invalid_package"),
-                                e
-                            ));
+                            flow.last_error =
+                                Some(format!("{}: {}", i18n::t("gui.import.invalid_package"), e));
                         }
                     }
                 }
@@ -1644,12 +1607,9 @@ impl App {
                 ConfigEditorEvent::Save => {
                     let path = config::conf_path(&flow.name);
                     if let Err(e) = std::fs::write(&path, &flow.draft) {
-                        log::error!(
-                            "splitwg: config editor: write failed: {e}"
-                        );
+                        log::error!("splitwg: config editor: write failed: {e}");
                     } else {
-                        self.configs =
-                            config::load_configs().unwrap_or_default();
+                        self.configs = config::load_configs().unwrap_or_default();
                     }
                     self.config_editor_flow = None;
                 }
@@ -1673,14 +1633,10 @@ impl App {
                     match config::rename_config(&old, &new_name) {
                         Ok(()) => {
                             self.rekey_tunnel_state(&old, &new_name);
-                            self.configs =
-                                config::load_configs().unwrap_or_default();
+                            self.configs = config::load_configs().unwrap_or_default();
                         }
                         Err(e) => {
-                            notify::error(
-                                &i18n::t("notify.splitwg"),
-                                &format!("{}: {}", old, e),
-                            );
+                            notify::error(&i18n::t("notify.splitwg"), &format!("{}: {}", old, e));
                         }
                     }
                     self.rename_flow = None;
@@ -1754,7 +1710,9 @@ impl App {
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
             .default_width(480.0)
             .show(ctx, |ui| match &state {
-                PendingUpdate::Announced { version, changelog, .. } => {
+                PendingUpdate::Announced {
+                    version, changelog, ..
+                } => {
                     ui.label(i18n::t_with(
                         "gui.update.modal.available",
                         &[("version", version)],
@@ -1762,15 +1720,23 @@ impl App {
                     render_changelog(ui, changelog);
                     ui.separator();
                     ui.horizontal(|ui| {
-                        if ui.button(i18n::t("gui.update.modal.cancel_button")).clicked() {
+                        if ui
+                            .button(i18n::t("gui.update.modal.cancel_button"))
+                            .clicked()
+                        {
                             action = UpdateModalAction::Dismiss;
                         }
-                        if ui.button(i18n::t("gui.update.modal.download_button")).clicked() {
+                        if ui
+                            .button(i18n::t("gui.update.modal.download_button"))
+                            .clicked()
+                        {
                             action = UpdateModalAction::Download;
                         }
                     });
                 }
-                PendingUpdate::Downloading { downloaded, total, .. } => {
+                PendingUpdate::Downloading {
+                    downloaded, total, ..
+                } => {
                     let pct = if *total > 0 {
                         ((*downloaded as f64 / *total as f64) * 100.0).clamp(0.0, 100.0)
                     } else {
@@ -1787,7 +1753,12 @@ impl App {
                     };
                     ui.add(egui::ProgressBar::new(progress).show_percentage());
                 }
-                PendingUpdate::Ready { version, changelog, app_path, .. } => {
+                PendingUpdate::Ready {
+                    version,
+                    changelog,
+                    app_path,
+                    ..
+                } => {
                     ui.label(
                         egui::RichText::new(i18n::t_with(
                             "gui.update.modal.ready_headline",
@@ -1798,8 +1769,8 @@ impl App {
                     render_changelog(ui, changelog);
                     ui.separator();
                     ui.label(i18n::t("gui.update.modal.quit_notice"));
-                    let install_target = super::update::current_install_path()
-                        .unwrap_or_else(|_| app_path.clone());
+                    let install_target =
+                        super::update::current_install_path().unwrap_or_else(|_| app_path.clone());
                     if matches!(
                         super::update::detect_install_mode(&install_target),
                         super::update::InstallMode::AdminReplace
@@ -1812,10 +1783,16 @@ impl App {
                     }
                     ui.separator();
                     ui.horizontal(|ui| {
-                        if ui.button(i18n::t("gui.update.modal.later_button")).clicked() {
+                        if ui
+                            .button(i18n::t("gui.update.modal.later_button"))
+                            .clicked()
+                        {
                             action = UpdateModalAction::Dismiss;
                         }
-                        if ui.button(i18n::t("gui.update.modal.install_button")).clicked() {
+                        if ui
+                            .button(i18n::t("gui.update.modal.install_button"))
+                            .clicked()
+                        {
                             action = UpdateModalAction::Install;
                         }
                     });
@@ -1829,7 +1806,10 @@ impl App {
                         ),
                     );
                     ui.separator();
-                    if ui.button(i18n::t("gui.update.modal.cancel_button")).clicked() {
+                    if ui
+                        .button(i18n::t("gui.update.modal.cancel_button"))
+                        .clicked()
+                    {
                         action = UpdateModalAction::Dismiss;
                     }
                 }
@@ -1933,9 +1913,7 @@ fn render_changelog(ui: &mut egui::Ui, changelog: &str) {
         return;
     }
     ui.separator();
-    ui.label(
-        egui::RichText::new(i18n::t("gui.update.modal.changelog_header")).strong(),
-    );
+    ui.label(egui::RichText::new(i18n::t("gui.update.modal.changelog_header")).strong());
     egui::ScrollArea::vertical()
         .max_height(160.0)
         .show(ui, |ui| {

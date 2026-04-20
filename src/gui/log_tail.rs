@@ -39,10 +39,7 @@ impl LogTail {
             let mut last_pos: u64 = 0;
             loop {
                 if let Ok(mut f) = File::open(&path) {
-                    let len = f
-                        .metadata()
-                        .map(|m| m.len())
-                        .unwrap_or(0);
+                    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
                     if len < last_pos {
                         // File was truncated or replaced — rewind.
                         last_pos = 0;

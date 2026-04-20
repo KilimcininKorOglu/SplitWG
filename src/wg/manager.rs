@@ -106,9 +106,8 @@ impl Manager {
             }
         }
 
-        let body = std::fs::read_to_string(&cfg.file_path).map_err(|e| {
-            WgError::Msg(format!("read {}: {}", cfg.file_path.display(), e))
-        })?;
+        let body = std::fs::read_to_string(&cfg.file_path)
+            .map_err(|e| WgError::Msg(format!("read {}: {}", cfg.file_path.display(), e)))?;
         let parsed = conf::parse(&body).map_err(|e| WgError::Msg(format!("parse conf: {e}")))?;
         let peer = parsed
             .peers
@@ -223,13 +222,24 @@ impl Manager {
 
         let up_json = serde_json::to_string(&IpcCmd::Up(Box::new(params)))
             .map_err(|e| WgError::Msg(format!("serialize up: {e}")))?;
-        log::info!("splitwg: manager: sending Up command ({} bytes)", up_json.len());
+        log::info!(
+            "splitwg: manager: sending Up command ({} bytes)",
+            up_json.len()
+        );
         transport.send_raw(&up_json)?;
 
-        log::info!("splitwg: manager: waiting for Ready event (timeout={}s)", READY_TIMEOUT.as_secs());
+        log::info!(
+            "splitwg: manager: waiting for Ready event (timeout={}s)",
+            READY_TIMEOUT.as_secs()
+        );
         #[cfg(target_os = "macos")]
         let stderr_rx = spawn_stderr_logger(&mut transport.child, cfg.name.clone());
-        let iface = match read_ready_from_transport(&mut transport, READY_TIMEOUT, cfg.name.clone(), self.event_tx.clone()) {
+        let iface = match read_ready_from_transport(
+            &mut transport,
+            READY_TIMEOUT,
+            cfg.name.clone(),
+            self.event_tx.clone(),
+        ) {
             Ok(iface) => {
                 log::info!("splitwg: manager: helper ready on {iface}");
                 iface
@@ -277,9 +287,7 @@ impl Manager {
             .map_err(|_| WgError::Msg("transport mutex poisoned".into()))?;
 
         log::info!("splitwg: manager: sending Shutdown command to {:?}", name);
-        let _ = transport.send_raw(
-            &serde_json::to_string(&IpcCmd::Shutdown).unwrap(),
-        );
+        let _ = transport.send_raw(&serde_json::to_string(&IpcCmd::Shutdown).unwrap());
 
         transport.wait_shutdown(SHUTDOWN_TIMEOUT, name);
         Ok(())
@@ -294,9 +302,12 @@ impl Manager {
     pub fn reconnect(&self, name: &str) -> Result<(), WgError> {
         log::info!("splitwg: manager: reconnecting {:?}", name);
         let _ = self.disconnect(name);
-        log::info!("splitwg: manager: reloading config for {:?} from disk", name);
-        let cfgs = config::load_configs()
-            .map_err(|e| WgError::Msg(format!("load configs: {e}")))?;
+        log::info!(
+            "splitwg: manager: reloading config for {:?} from disk",
+            name
+        );
+        let cfgs =
+            config::load_configs().map_err(|e| WgError::Msg(format!("load configs: {e}")))?;
         let cfg = cfgs
             .into_iter()
             .find(|c| c.name == name)
@@ -344,7 +355,6 @@ fn spawn_stderr_logger(child: &mut Child, tunnel: String) -> Option<thread::Join
         }
     }))
 }
-
 
 // ---------------------------------------------------------------------------
 // IPC Transport — platform-specific communication with the privileged process
@@ -435,8 +445,10 @@ impl IpcTransport {
             .write(true)
             .open(r"\\.\pipe\splitwg")
             .map_err(|e| WgError::Msg(format!("connect to service pipe: {e}")))?;
-        let reader = BufReader::new(pipe.try_clone()
-            .map_err(|e| WgError::Msg(format!("clone pipe handle: {e}")))?);
+        let reader = BufReader::new(
+            pipe.try_clone()
+                .map_err(|e| WgError::Msg(format!("clone pipe handle: {e}")))?,
+        );
         log::info!("splitwg: transport: connected to service pipe");
         Ok(Self { pipe, reader })
     }
@@ -522,7 +534,9 @@ fn read_ready_from_transport(
                 return Err("ready event timed out".into());
             }
             let mut line = String::new();
-            transport.reader.read_line(&mut line)
+            transport
+                .reader
+                .read_line(&mut line)
                 .map_err(|e| format!("read from service pipe: {e}"))?;
             let line = line.trim();
             if line.is_empty() {
@@ -625,9 +639,8 @@ mod tests {
 
     #[test]
     fn extract_peer_public_key_none_when_missing() {
-        let cfg = format!(
-            "[Interface]\nPrivateKey = {IFACE_KEY}\n\n[Peer]\nEndpoint = 1.2.3.4:51820\n"
-        );
+        let cfg =
+            format!("[Interface]\nPrivateKey = {IFACE_KEY}\n\n[Peer]\nEndpoint = 1.2.3.4:51820\n");
         let path = write_tmp(&cfg);
         // Missing PublicKey → parse fails → None
         assert_eq!(extract_peer_public_key(&path), None);

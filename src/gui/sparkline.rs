@@ -130,8 +130,7 @@ pub struct Sparkline<'a> {
 
 impl<'a> Sparkline<'a> {
     pub fn show(self, ui: &mut egui::Ui) -> egui::Response {
-        let (response, painter) =
-            ui.allocate_painter(self.size, egui::Sense::hover());
+        let (response, painter) = ui.allocate_painter(self.size, egui::Sense::hover());
         let rect = response.rect;
 
         // Subtle baseline so the widget has a visible extent even when idle.
@@ -147,12 +146,7 @@ impl<'a> Sparkline<'a> {
 
         // Sliding-window max keeps the graph responsive to current activity.
         // Floor at 1.0 so zero-traffic windows don't blow up the normaliser.
-        let max = self
-            .values
-            .iter()
-            .copied()
-            .fold(0.0f32, f32::max)
-            .max(1.0);
+        let max = self.values.iter().copied().fold(0.0f32, f32::max).max(1.0);
 
         let n = self.values.len();
         let x_step = if n > 1 {
@@ -168,10 +162,7 @@ impl<'a> Sparkline<'a> {
             let y = rect.bottom() - (v / max) * rect.height();
             let pos = egui::pos2(x, y);
             if let Some(p) = prev {
-                painter.line_segment(
-                    [p, pos],
-                    egui::Stroke::new(1.2, self.color),
-                );
+                painter.line_segment([p, pos], egui::Stroke::new(1.2, self.color));
             }
             prev = Some(pos);
         }

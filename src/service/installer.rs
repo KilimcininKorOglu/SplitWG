@@ -12,10 +12,8 @@ pub fn is_installed() -> bool {
     use windows_service::service::ServiceAccess;
     use windows_service::service_manager::*;
 
-    let manager = match ServiceManager::local_computer(
-        None::<&str>,
-        ServiceManagerAccess::CONNECT,
-    ) {
+    let manager = match ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
+    {
         Ok(m) => m,
         Err(_) => return false,
     };
@@ -30,11 +28,9 @@ pub fn install() -> Result<(), String> {
     use windows_service::service::*;
     use windows_service::service_manager::*;
 
-    let manager = ServiceManager::local_computer(
-        None::<&str>,
-        ServiceManagerAccess::CREATE_SERVICE,
-    )
-    .map_err(|e| format!("failed to open service manager: {e}"))?;
+    let manager =
+        ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CREATE_SERVICE)
+            .map_err(|e| format!("failed to open service manager: {e}"))?;
 
     let service_binary = std::env::current_exe()
         .map_err(|e| format!("failed to get exe path: {e}"))?
@@ -56,7 +52,10 @@ pub fn install() -> Result<(), String> {
     };
 
     manager
-        .create_service(&service_info, ServiceAccess::CHANGE_CONFIG | ServiceAccess::START)
+        .create_service(
+            &service_info,
+            ServiceAccess::CHANGE_CONFIG | ServiceAccess::START,
+        )
         .map_err(|e| format!("failed to create service: {e}"))?;
 
     Ok(())
@@ -65,14 +64,11 @@ pub fn install() -> Result<(), String> {
 /// Uninstalls the splitwg service.
 #[cfg(target_os = "windows")]
 pub fn uninstall() -> Result<(), String> {
-    use windows_service::service_manager::*;
     use windows_service::service::*;
+    use windows_service::service_manager::*;
 
-    let manager = ServiceManager::local_computer(
-        None::<&str>,
-        ServiceManagerAccess::CONNECT,
-    )
-    .map_err(|e| format!("failed to open service manager: {e}"))?;
+    let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
+        .map_err(|e| format!("failed to open service manager: {e}"))?;
 
     let service = manager
         .open_service("splitwg", ServiceAccess::STOP | ServiceAccess::DELETE)

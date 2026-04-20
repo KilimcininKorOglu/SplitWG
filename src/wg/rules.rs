@@ -63,9 +63,7 @@ pub fn resolve_entries(entries: &[String]) -> Vec<String> {
         if let Some(asn) = is_asn_entry(entry) {
             let expanded = geo::expand_asn(asn);
             if expanded.is_empty() {
-                log::warn!(
-                    "splitwg: rules: asn:{asn} resolved to 0 CIDRs (mmdb missing?)"
-                );
+                log::warn!("splitwg: rules: asn:{asn} resolved to 0 CIDRs (mmdb missing?)");
             } else {
                 log::info!(
                     "splitwg: rules: asn:{asn} expanded to {} CIDRs",
@@ -114,11 +112,18 @@ pub fn resolve_entries(entries: &[String]) -> Vec<String> {
             collected.push(format_ip_as_host(&ip, &ip_str));
             resolved_count += 1;
         }
-        log::info!("splitwg: rules: {:?} resolved to {} IP(s)", host, resolved_count);
+        log::info!(
+            "splitwg: rules: {:?} resolved to {} IP(s)",
+            host,
+            resolved_count
+        );
     }
 
     let result = dedup_preserving_order(collected);
-    log::info!("splitwg: rules: resolution complete — {} final AllowedIPs", result.len());
+    log::info!(
+        "splitwg: rules: resolution complete — {} final AllowedIPs",
+        result.len()
+    );
     result
 }
 
@@ -196,8 +201,11 @@ pub fn get_default_gateway() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         let output = Command::new("powershell")
-            .args(["-NoProfile", "-Command",
-                "(Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1).NextHop"])
+            .args([
+                "-NoProfile",
+                "-Command",
+                "(Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1).NextHop",
+            ])
             .output()
             .map_err(|e| format!("get default gateway: {}", e))?;
         let gw = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -344,7 +352,8 @@ mod tests {
 
     #[test]
     fn build_include_config_inserts_when_absent() {
-        let original = "[Interface]\nPrivateKey = foo\n\n[Peer]\nPublicKey = bar\nEndpoint = 1.2.3.4:51820\n";
+        let original =
+            "[Interface]\nPrivateKey = foo\n\n[Peer]\nPublicKey = bar\nEndpoint = 1.2.3.4:51820\n";
         let rules = Rules {
             mode: "include".to_string(),
             entries: vec!["10.0.0.0/24".to_string()],

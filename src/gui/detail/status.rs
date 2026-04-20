@@ -16,7 +16,9 @@ pub enum StatusEvent {
     /// active. Callers are expected to route this through `tasks::spawn_toggle`.
     Toggle,
     /// Ping the peer at the given endpoint. Caller routes to `spawn_ping`.
-    PingPeer { endpoint: String },
+    PingPeer {
+        endpoint: String,
+    },
     /// Open the config editor modal for the selected tunnel.
     EditConfig,
     /// Rename the selected tunnel.
@@ -68,10 +70,7 @@ pub fn show(
         } else {
             i18n::t("gui.detail.status.activate")
         };
-        if ui
-            .add_enabled(!busy, egui::Button::new(label))
-            .clicked()
-        {
+        if ui.add_enabled(!busy, egui::Button::new(label)).clicked() {
             event = StatusEvent::Toggle;
         }
         if ui
@@ -80,10 +79,7 @@ pub fn show(
         {
             event = StatusEvent::EditConfig;
         }
-        if ui
-            .button(i18n::t("gui.detail.status.rename"))
-            .clicked()
-        {
+        if ui.button(i18n::t("gui.detail.status.rename")).clicked() {
             event = StatusEvent::Rename;
         }
     });
@@ -106,7 +102,12 @@ pub fn show(
                 let secret = x25519_dalek::StaticSecret::from(parsed.interface.private_key);
                 let public = x25519_dalek::PublicKey::from(&secret);
                 let public_b64 = BASE64_STANDARD.encode(public.to_bytes());
-                labelled_row(ui, &i18n::t("gui.detail.interface.public_key"), &public_b64, true);
+                labelled_row(
+                    ui,
+                    &i18n::t("gui.detail.interface.public_key"),
+                    &public_b64,
+                    true,
+                );
 
                 let addrs = parsed
                     .interface
@@ -115,7 +116,12 @@ pub fn show(
                     .map(|n| n.to_string())
                     .collect::<Vec<_>>()
                     .join(", ");
-                labelled_row(ui, &i18n::t("gui.detail.interface.addresses"), &addrs, false);
+                labelled_row(
+                    ui,
+                    &i18n::t("gui.detail.interface.addresses"),
+                    &addrs,
+                    false,
+                );
 
                 if !parsed.interface.dns.is_empty() {
                     let dns = parsed
@@ -150,15 +156,11 @@ pub fn show(
             for (idx, peer) in parsed.peers.iter().enumerate() {
                 use base64::prelude::{Engine, BASE64_STANDARD};
                 let public_b64 = BASE64_STANDARD.encode(peer.public_key);
-                let peer_stats = stats
-                    .and_then(|s| s.peers.iter().find(|p| p.public_key == public_b64));
+                let peer_stats =
+                    stats.and_then(|s| s.peers.iter().find(|p| p.public_key == public_b64));
 
                 ui.group(|ui| {
-                    ui.heading(format!(
-                        "{} #{}",
-                        i18n::t("gui.detail.peer.title"),
-                        idx + 1
-                    ));
+                    ui.heading(format!("{} #{}", i18n::t("gui.detail.peer.title"), idx + 1));
 
                     labelled_row(
                         ui,
@@ -173,23 +175,13 @@ pub fn show(
                         .map(|n| n.to_string())
                         .collect::<Vec<_>>()
                         .join(", ");
-                    labelled_row(
-                        ui,
-                        &i18n::t("gui.detail.peer.allowed_ips"),
-                        &allowed,
-                        false,
-                    );
+                    labelled_row(ui, &i18n::t("gui.detail.peer.allowed_ips"), &allowed, false);
 
                     let endpoint = peer_stats
                         .and_then(|s| s.endpoint.clone())
                         .or_else(|| peer.endpoint.map(|e| e.to_string()));
                     if let Some(endpoint) = endpoint.as_deref() {
-                        labelled_row(
-                            ui,
-                            &i18n::t("gui.detail.peer.endpoint"),
-                            endpoint,
-                            false,
-                        );
+                        labelled_row(ui, &i18n::t("gui.detail.peer.endpoint"), endpoint, false);
                     }
 
                     if let (true, Some(endpoint)) = (is_active, endpoint.clone()) {
@@ -207,9 +199,7 @@ pub fn show(
                                 }
                                 if let Some(p) = ping {
                                     if p.inflight {
-                                        ui.label(i18n::t(
-                                            "gui.detail.peer.ping_inflight",
-                                        ));
+                                        ui.label(i18n::t("gui.detail.peer.ping_inflight"));
                                     } else if p.last_was_timeout {
                                         ui.colored_label(
                                             egui::Color32::from_rgb(220, 120, 120),
@@ -228,11 +218,9 @@ pub fn show(
                                 }
                             });
                             ui.label(
-                                egui::RichText::new(i18n::t(
-                                    "gui.detail.peer.ping_hint_note",
-                                ))
-                                .small()
-                                .color(egui::Color32::DARK_GRAY),
+                                egui::RichText::new(i18n::t("gui.detail.peer.ping_hint_note"))
+                                    .small()
+                                    .color(egui::Color32::DARK_GRAY),
                             );
                             if let Some(h) = rtt {
                                 ui.add_space(4.0);
@@ -260,12 +248,7 @@ pub fn show(
                             i18n::t("gui.detail.peer.tx"),
                             wg_stat::humanize_bytes(ps.tx_bytes),
                         );
-                        labelled_row(
-                            ui,
-                            &i18n::t("gui.detail.peer.transfer"),
-                            &transfer,
-                            false,
-                        );
+                        labelled_row(ui, &i18n::t("gui.detail.peer.transfer"), &transfer, false);
                     }
 
                     // Sparkline is rendered once per tunnel (aggregate of
@@ -317,8 +300,8 @@ fn rtt_row(ui: &mut egui::Ui, history: &RttHistory, ping: Option<&PingDisplay>) 
     // Prefer the in-flight PingDisplay for "is this currently timed out?"
     // so the label flips immediately on a fresh failure, even if history
     // still carries a successful `last_ms`.
-    let live_timeout = ping.map(|p| p.last_was_timeout).unwrap_or(false)
-        || history.last_was_timeout;
+    let live_timeout =
+        ping.map(|p| p.last_was_timeout).unwrap_or(false) || history.last_was_timeout;
     let color = if live_timeout {
         egui::Color32::GRAY
     } else {
@@ -385,13 +368,9 @@ fn throughput_row(
 /// is selectable so the user can drag-select sub-portions of a long key.
 fn labelled_row(ui: &mut egui::Ui, label: &str, value: &str, copyable: bool) {
     ui.horizontal(|ui| {
-        ui.add(egui::Label::new(
-            egui::RichText::new(label).strong(),
-        ));
+        ui.add(egui::Label::new(egui::RichText::new(label).strong()));
         ui.add_space(4.0);
-        ui.add(
-            egui::Label::new(egui::RichText::new(value).monospace()).wrap(),
-        );
+        ui.add(egui::Label::new(egui::RichText::new(value).monospace()).wrap());
         if copyable
             && ui
                 .add(egui::Button::new(i18n::t("gui.detail.copy")).small())

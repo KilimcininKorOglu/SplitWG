@@ -3,8 +3,8 @@
 //! Provides service lifecycle (install, run, uninstall) and named pipe IPC
 //! server. Only compiled on Windows.
 
-mod pipe_server;
 mod installer;
+mod pipe_server;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -14,7 +14,7 @@ use tokio::sync::{watch, Mutex};
 use crate::ipc::{Command, Event};
 use crate::runtime::Tunnel;
 
-pub use installer::{install, uninstall, is_installed};
+pub use installer::{install, is_installed, uninstall};
 
 type TunnelMap = Arc<Mutex<HashMap<String, TunnelState>>>;
 
@@ -56,8 +56,7 @@ fn win_service_main(_arguments: Vec<std::ffi::OsString>) {
         }
     };
 
-    let status_handle =
-        service_control_handler::register("splitwg", event_handler).unwrap();
+    let status_handle = service_control_handler::register("splitwg", event_handler).unwrap();
 
     status_handle
         .set_service_status(ServiceStatus {

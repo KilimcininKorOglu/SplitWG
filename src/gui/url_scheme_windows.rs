@@ -39,8 +39,7 @@ pub fn register() -> Result<(), String> {
             .create_subkey(&format!(r"{PROTOCOL_KEY}\shell\open\command"))
             .map_err(|e| format!("failed to create command key: {e}"))?;
 
-        let exe = std::env::current_exe()
-            .map_err(|e| format!("failed to get exe path: {e}"))?;
+        let exe = std::env::current_exe().map_err(|e| format!("failed to get exe path: {e}"))?;
         let cmd = format!("\"{}\" \"%1\"", exe.display());
         cmd_key
             .set_value("", &cmd)

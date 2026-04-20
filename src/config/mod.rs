@@ -181,7 +181,10 @@ pub fn rules_path(name: &str) -> PathBuf {
 pub fn ensure_config_dir() -> io::Result<()> {
     let dir = config_dir();
     if !dir.exists() {
-        log::info!("splitwg: config: creating config directory {}", dir.display());
+        log::info!(
+            "splitwg: config: creating config directory {}",
+            dir.display()
+        );
     }
     fs::create_dir_all(&dir)?;
     // create_dir_all respects existing permissions; set them explicitly on
@@ -262,7 +265,10 @@ pub fn load_rules_file(path: &Path) -> Result<Rules, ConfigError> {
 pub fn ensure_rules_file(name: &str) -> Result<PathBuf, ConfigError> {
     let path = rules_path(name);
     if !path.exists() {
-        log::info!("splitwg: config: creating default rules file for {:?}", name);
+        log::info!(
+            "splitwg: config: creating default rules file for {:?}",
+            name
+        );
         let r = Rules::default();
         let data = serde_json::to_vec_pretty(&r)?;
         write_with_mode(&path, &data, 0o644)?;
@@ -275,7 +281,11 @@ pub fn ensure_rules_file(name: &str) -> Result<PathBuf, ConfigError> {
 /// Copies `src` into the config directory as `<name>.conf` with mode 0600.
 pub fn copy_config_file(src: &Path, name: &str) -> io::Result<()> {
     let dst = conf_path(name);
-    log::info!("splitwg: config: copying config {} -> {}", src.display(), dst.display());
+    log::info!(
+        "splitwg: config: copying config {} -> {}",
+        src.display(),
+        dst.display()
+    );
     let data = fs::read(src)?;
     write_with_mode(&dst, &data, 0o600)
 }
@@ -304,11 +314,7 @@ pub fn delete_config(name: &str) -> io::Result<()> {
 /// `<new>.rules.json`. Returns `AlreadyExists` if the target `.conf`
 /// file is already present. A missing `.rules.json` is silently skipped.
 pub fn rename_config(old_name: &str, new_name: &str) -> io::Result<()> {
-    log::info!(
-        "splitwg: config: renaming {:?} to {:?}",
-        old_name,
-        new_name
-    );
+    log::info!("splitwg: config: renaming {:?} to {:?}", old_name, new_name);
     let dir = config_dir();
     let old_conf = dir.join(format!("{old_name}.conf"));
     let new_conf = dir.join(format!("{new_name}.conf"));
@@ -353,7 +359,10 @@ pub fn load_settings() -> Settings {
         Ok(data) => match serde_json::from_slice(&data) {
             Ok(s) => s,
             Err(e) => {
-                log::warn!("splitwg: config: malformed settings.json, falling back to defaults: {}", e);
+                log::warn!(
+                    "splitwg: config: malformed settings.json, falling back to defaults: {}",
+                    e
+                );
                 Settings::default()
             }
         },
@@ -380,7 +389,11 @@ pub fn save_settings(s: &Settings) -> Result<(), ConfigError> {
 /// mode 0644.
 pub fn save_rules(name: &str, rules: &Rules) -> Result<(), ConfigError> {
     let path = rules_path(name);
-    log::info!("splitwg: config: saving rules for {:?} to {}", name, path.display());
+    log::info!(
+        "splitwg: config: saving rules for {:?} to {}",
+        name,
+        path.display()
+    );
 
     let data = serde_json::to_vec_pretty(rules).map_err(|e| ConfigError::SaveRules {
         name: name.to_string(),
@@ -416,7 +429,12 @@ fn restrict_file_acl(path: &Path) {
     let path_str = path.to_string_lossy();
     let user = std::env::var("USERNAME").unwrap_or_else(|_| "SYSTEM".to_string());
     let _ = std::process::Command::new("icacls")
-        .args([&*path_str, "/inheritance:r", "/grant:r", &format!("{user}:F")])
+        .args([
+            &*path_str,
+            "/inheritance:r",
+            "/grant:r",
+            &format!("{user}:F"),
+        ])
         .status();
 }
 
@@ -538,8 +556,7 @@ mod tests {
         };
         save_rules("roundtrip", &want).unwrap();
 
-        let got =
-            load_rules_file(&home.join(".config/splitwg/roundtrip.rules.json")).unwrap();
+        let got = load_rules_file(&home.join(".config/splitwg/roundtrip.rules.json")).unwrap();
         assert_eq!(got.mode, want.mode);
         assert_eq!(got.entries, want.entries);
     }

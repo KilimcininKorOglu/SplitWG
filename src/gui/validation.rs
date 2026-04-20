@@ -298,8 +298,9 @@ mod tests {
             hooks_enabled: false,
             on_demand: None,
         };
-        assert!(validate_wg_config(&cfg, Some(&rules))
-            .contains(&ConfigWarning::IncludeWithCatchAll));
+        assert!(
+            validate_wg_config(&cfg, Some(&rules)).contains(&ConfigWarning::IncludeWithCatchAll)
+        );
     }
 
     #[test]
@@ -312,7 +313,8 @@ mod tests {
             hooks_enabled: false,
             on_demand: None,
         };
-        assert!(!validate_wg_config(&cfg, Some(&rules))
-            .contains(&ConfigWarning::IncludeWithCatchAll));
+        assert!(
+            !validate_wg_config(&cfg, Some(&rules)).contains(&ConfigWarning::IncludeWithCatchAll)
+        );
     }
 }

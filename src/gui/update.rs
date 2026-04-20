@@ -130,13 +130,21 @@ pub fn fetch_latest() -> Result<ReleaseInfo, UpdateError> {
         .into_body()
         .read_to_string()
         .map_err(|e| UpdateError::Http(e.to_string()))?;
-    let body: GhRelease = serde_json::from_str(&text)
-        .map_err(|e| UpdateError::Parse(e.to_string()))?;
+    let body: GhRelease =
+        serde_json::from_str(&text).map_err(|e| UpdateError::Parse(e.to_string()))?;
     let info = parse_release(body)?;
     if is_newer(&info.version) {
-        log::info!("splitwg: update: new version available: {} (current: {})", info.version, current_version());
+        log::info!(
+            "splitwg: update: new version available: {} (current: {})",
+            info.version,
+            current_version()
+        );
     } else {
-        log::info!("splitwg: update: already up to date (remote: {}, current: {})", info.version, current_version());
+        log::info!(
+            "splitwg: update: already up to date (remote: {}, current: {})",
+            info.version,
+            current_version()
+        );
     }
     Ok(info)
 }
@@ -256,7 +264,11 @@ pub fn download_and_verify(
     version: Version,
     progress: impl Fn(u64, u64),
 ) -> Result<DownloadedUpdate, UpdateError> {
-    log::info!("splitwg: update: starting download of v{} from {}", version, dmg_url);
+    log::info!(
+        "splitwg: update: starting download of v{} from {}",
+        version,
+        dmg_url
+    );
     let cache = cache_dir();
     fs::create_dir_all(&cache)?;
 
@@ -267,7 +279,11 @@ pub fn download_and_verify(
 
     if let Some(expected) = expected_digest {
         if !digest.eq_ignore_ascii_case(expected) {
-            log::error!("splitwg: update: SHA-256 mismatch (expected: {}, got: {})", expected, digest);
+            log::error!(
+                "splitwg: update: SHA-256 mismatch (expected: {}, got: {})",
+                expected,
+                digest
+            );
             let _ = fs::remove_file(&dmg_path);
             return Err(UpdateError::DigestMismatch);
         }
@@ -297,7 +313,10 @@ pub fn download_and_verify(
     let _ = hdiutil_detach(&mount_point);
 
     let app_path = copy_result?;
-    log::info!("splitwg: update: download and verification complete for v{}", version);
+    log::info!(
+        "splitwg: update: download and verification complete for v{}",
+        version
+    );
     Ok(DownloadedUpdate {
         version,
         app_path,
@@ -361,7 +380,10 @@ fn download_with_progress(
     }
     file.flush()?;
     progress(downloaded, total.max(downloaded));
-    log::info!("splitwg: update: download complete, {} bytes written", downloaded);
+    log::info!(
+        "splitwg: update: download complete, {} bytes written",
+        downloaded
+    );
     Ok(hex::encode(hasher.finalize()))
 }
 
@@ -428,7 +450,10 @@ fn hdiutil_detach(mount_point: &Path) -> io::Result<()> {
         .arg(mount_point)
         .status()?;
     if !status.success() {
-        log::warn!("splitwg: update: hdiutil detach {:?} exited non-zero", mount_point);
+        log::warn!(
+            "splitwg: update: hdiutil detach {:?} exited non-zero",
+            mount_point
+        );
     }
     Ok(())
 }
@@ -493,9 +518,7 @@ fn self_team_id() -> Result<String, UpdateError> {
         Some(app) => codesign_team_id(&app).map_err(|e| e.to_string()),
         None => Err("could not locate current .app bundle".to_string()),
     });
-    cached
-        .clone()
-        .map_err(UpdateError::Other)
+    cached.clone().map_err(UpdateError::Other)
 }
 
 /// Walks up from the executable path to find the enclosing `.app` bundle.
@@ -527,8 +550,9 @@ pub fn codesign_team_id(app: &Path) -> Result<String, UpdateError> {
         .arg(app)
         .output()?;
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let team_id = parse_team_id(&stderr)
-        .ok_or_else(|| UpdateError::Other(format!("no TeamIdentifier in codesign output: {stderr}")))?;
+    let team_id = parse_team_id(&stderr).ok_or_else(|| {
+        UpdateError::Other(format!("no TeamIdentifier in codesign output: {stderr}"))
+    })?;
     log::info!("splitwg: update: codesign team id: {}", team_id);
     Ok(team_id)
 }
@@ -595,7 +619,11 @@ pub fn install_and_relaunch(
     current_app: &Path,
     mount_point: &Path,
 ) -> Result<(), UpdateError> {
-    log::info!("splitwg: update: install starting, swapping {:?} with {:?}", current_app, new_app);
+    log::info!(
+        "splitwg: update: install starting, swapping {:?} with {:?}",
+        current_app,
+        new_app
+    );
     // Best-effort unmount; if it fails the install can still succeed.
     let _ = hdiutil_detach(mount_point);
 
@@ -915,10 +943,7 @@ mod tests {
 
     #[test]
     fn detect_install_mode_user_home_is_direct() {
-        let home = std::env::temp_dir().join(format!(
-            "splitwg-install-{}",
-            std::process::id()
-        ));
+        let home = std::env::temp_dir().join(format!("splitwg-install-{}", std::process::id()));
         fs::create_dir_all(&home).unwrap();
         let target = home.join("SplitWG.app");
         assert_eq!(detect_install_mode(&target), InstallMode::DirectReplace);
@@ -927,10 +952,7 @@ mod tests {
 
     #[test]
     fn cleanup_stale_downloads_removes_old_files() {
-        let scratch = std::env::temp_dir().join(format!(
-            "splitwg-cleanup-{}",
-            std::process::id()
-        ));
+        let scratch = std::env::temp_dir().join(format!("splitwg-cleanup-{}", std::process::id()));
         fs::create_dir_all(&scratch).unwrap();
         let old = scratch.join("old.dmg");
         let young = scratch.join("young.dmg");
@@ -972,7 +994,10 @@ mod tests {
             "{}{:02}{:02}{:02}{:02}",
             // naive UTC breakdown via `date -r`
             "",
-            0, 0, 0, 0
+            0,
+            0,
+            0,
+            0
         );
         let _ = stamp;
         let status = std::process::Command::new("/usr/bin/touch")

@@ -66,9 +66,9 @@ pub fn show_add(ctx: &egui::Context, flow: &mut AddFlow) -> AddEvent {
             ui.text_edit_singleline(&mut flow.stem);
 
             let stem_valid = !flow.stem.trim().is_empty()
-                && !flow.stem.contains(|c: char| {
-                    matches!(c, '/' | '\\' | '\0' | ':') || c.is_whitespace()
-                });
+                && !flow
+                    .stem
+                    .contains(|c: char| matches!(c, '/' | '\\' | '\0' | ':') || c.is_whitespace());
             if !stem_valid {
                 ui.colored_label(
                     egui::Color32::from_rgb(220, 120, 120),
@@ -76,8 +76,7 @@ pub fn show_add(ctx: &egui::Context, flow: &mut AddFlow) -> AddEvent {
                 );
             }
 
-            let existing =
-                config::config_dir().join(format!("{}.conf", flow.stem.trim()));
+            let existing = config::config_dir().join(format!("{}.conf", flow.stem.trim()));
             let duplicate = stem_valid && existing.exists();
             if duplicate {
                 ui.colored_label(
@@ -104,8 +103,7 @@ pub fn show_add(ctx: &egui::Context, flow: &mut AddFlow) -> AddEvent {
                 for w in &flow.warnings {
                     ui.horizontal_wrapped(|ui| {
                         ui.label(
-                            egui::RichText::new("⚠")
-                                .color(egui::Color32::from_rgb(220, 170, 60)),
+                            egui::RichText::new("⚠").color(egui::Color32::from_rgb(220, 170, 60)),
                         );
                         ui.label(i18n::t(validation::warning_key(*w)));
                     });
@@ -194,12 +192,10 @@ pub fn show_delete(ctx: &egui::Context, name: &str) -> DeleteEvent {
                     event = DeleteEvent::Cancel;
                 }
                 if ui
-                    .add(
-                        egui::Button::new(
-                            egui::RichText::new(i18n::t("gui.delete.confirm"))
-                                .color(egui::Color32::from_rgb(220, 120, 120)),
-                        ),
-                    )
+                    .add(egui::Button::new(
+                        egui::RichText::new(i18n::t("gui.delete.confirm"))
+                            .color(egui::Color32::from_rgb(220, 120, 120)),
+                    ))
                     .clicked()
                 {
                     event = DeleteEvent::Confirm;
@@ -255,8 +251,11 @@ fn format_epoch_or_key(ts: Option<u64>, never_key: &str) -> String {
     #[cfg(target_os = "windows")]
     {
         let output = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-Command",
-                &format!("(Get-Date '1970-01-01').AddSeconds({secs}).ToString('yyyy-MM-dd HH:mm')")])
+            .args([
+                "-NoProfile",
+                "-Command",
+                &format!("(Get-Date '1970-01-01').AddSeconds({secs}).ToString('yyyy-MM-dd HH:mm')"),
+            ])
             .output();
         if let Ok(o) = output {
             if o.status.success() {
@@ -329,11 +328,7 @@ pub fn show_prefs(ctx: &egui::Context, flow: &mut PrefsFlow) -> PrefsEvent {
                 .selected_text(selected_lang.display_name())
                 .show_ui(ui, |ui| {
                     for lang in [Lang::En, Lang::Tr] {
-                        ui.selectable_value(
-                            &mut selected_lang,
-                            lang,
-                            lang.display_name(),
-                        );
+                        ui.selectable_value(&mut selected_lang, lang, lang.display_name());
                     }
                 });
             if selected_lang != current_lang {
@@ -383,9 +378,7 @@ pub fn show_prefs(ctx: &egui::Context, flow: &mut PrefsFlow) -> PrefsEvent {
             }
 
             ui.separator();
-            ui.label(
-                egui::RichText::new(i18n::t("gui.prefs.updates.section_header")).strong(),
-            );
+            ui.label(egui::RichText::new(i18n::t("gui.prefs.updates.section_header")).strong());
             ui.label(
                 egui::RichText::new(i18n::t("gui.prefs.updates.auto_check_description"))
                     .italics()
@@ -413,9 +406,7 @@ pub fn show_prefs(ctx: &egui::Context, flow: &mut PrefsFlow) -> PrefsEvent {
             });
 
             ui.separator();
-            ui.label(
-                egui::RichText::new(i18n::t("gui.prefs.geodb.section_header")).strong(),
-            );
+            ui.label(egui::RichText::new(i18n::t("gui.prefs.geodb.section_header")).strong());
             ui.label(
                 egui::RichText::new(i18n::t("gui.prefs.geodb.description"))
                     .italics()
@@ -435,9 +426,10 @@ pub fn show_prefs(ctx: &egui::Context, flow: &mut PrefsFlow) -> PrefsEvent {
                 ui.label(
                     egui::RichText::new(i18n::t_with(
                         "gui.prefs.geodb.last_update",
-                        &[("time", &format_last_geodb_update(
-                            flow.draft.last_geodb_update,
-                        ))],
+                        &[(
+                            "time",
+                            &format_last_geodb_update(flow.draft.last_geodb_update),
+                        )],
                     ))
                     .italics()
                     .small(),
@@ -446,16 +438,10 @@ pub fn show_prefs(ctx: &egui::Context, flow: &mut PrefsFlow) -> PrefsEvent {
 
             ui.separator();
             ui.horizontal(|ui| {
-                if ui
-                    .button(i18n::t("gui.prefs.export_button"))
-                    .clicked()
-                {
+                if ui.button(i18n::t("gui.prefs.export_button")).clicked() {
                     event = PrefsEvent::TriggerExport;
                 }
-                if ui
-                    .button(i18n::t("gui.prefs.import_button"))
-                    .clicked()
-                {
+                if ui.button(i18n::t("gui.prefs.import_button")).clicked() {
                     event = PrefsEvent::TriggerImport;
                 }
             });
@@ -495,10 +481,7 @@ pub struct ExportFlow {
 impl ExportFlow {
     pub fn open(configs: &[crate::config::Config]) -> Self {
         ExportFlow {
-            selection: configs
-                .iter()
-                .map(|c| (c.name.clone(), true))
-                .collect(),
+            selection: configs.iter().map(|c| (c.name.clone(), true)).collect(),
             password: String::new(),
             show_plain: false,
         }
@@ -540,11 +523,13 @@ pub fn show_export(ctx: &egui::Context, flow: &mut ExportFlow) -> ExportEvent {
                     *on = !all_on;
                 }
             }
-            egui::ScrollArea::vertical().max_height(160.0).show(ui, |ui| {
-                for (name, on) in &mut flow.selection {
-                    ui.checkbox(on, name.clone());
-                }
-            });
+            egui::ScrollArea::vertical()
+                .max_height(160.0)
+                .show(ui, |ui| {
+                    for (name, on) in &mut flow.selection {
+                        ui.checkbox(on, name.clone());
+                    }
+                });
 
             ui.separator();
             ui.label(i18n::t("gui.export.password_label"));
@@ -567,11 +552,7 @@ pub fn show_export(ctx: &egui::Context, flow: &mut ExportFlow) -> ExportEvent {
                 if ui.button(i18n::t("gui.export.cancel")).clicked() {
                     event = ExportEvent::Cancel;
                 }
-                let ready = flow
-                    .password
-                    .chars()
-                    .count()
-                    >= super::package::MIN_PASSWORD_LEN
+                let ready = flow.password.chars().count() >= super::package::MIN_PASSWORD_LEN
                     && flow.selection.iter().any(|(_, on)| *on);
                 if ui
                     .add_enabled(ready, egui::Button::new(i18n::t("gui.export.save")))
@@ -638,10 +619,7 @@ pub fn show_import(ctx: &egui::Context, flow: &mut ImportFlow) -> ImportEvent {
             });
 
             if let Some(err) = &flow.last_error {
-                ui.colored_label(
-                    egui::Color32::from_rgb(220, 120, 120),
-                    err.clone(),
-                );
+                ui.colored_label(egui::Color32::from_rgb(220, 120, 120), err.clone());
             }
 
             ui.separator();
@@ -700,10 +678,7 @@ pub enum ConfigEditorEvent {
     Cancel,
 }
 
-pub fn show_config_editor(
-    ctx: &egui::Context,
-    flow: &mut ConfigEditorFlow,
-) -> ConfigEditorEvent {
+pub fn show_config_editor(ctx: &egui::Context, flow: &mut ConfigEditorFlow) -> ConfigEditorEvent {
     let mut event = ConfigEditorEvent::None;
     let mut open = true;
 
@@ -715,9 +690,7 @@ pub fn show_config_editor(
         .default_height(400.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .show(ctx, |ui| {
-            ui.label(
-                egui::RichText::new(&flow.name).strong(),
-            );
+            ui.label(egui::RichText::new(&flow.name).strong());
             ui.add_space(4.0);
 
             egui::ScrollArea::vertical()
@@ -752,10 +725,7 @@ pub fn show_config_editor(
                         Err(e) => flow.error = Some(e.to_string()),
                     }
                 }
-                if flow.error.is_none()
-                    && flow.draft != flow.original
-                    && is_valid
-                {
+                if flow.error.is_none() && flow.draft != flow.original && is_valid {
                     ui.colored_label(
                         egui::Color32::from_rgb(80, 180, 100),
                         i18n::t("gui.editor.valid"),
@@ -769,10 +739,7 @@ pub fn show_config_editor(
                 }
                 let can_save = flow.draft != flow.original && is_valid;
                 if ui
-                    .add_enabled(
-                        can_save,
-                        egui::Button::new(i18n::t("gui.editor.save")),
-                    )
+                    .add_enabled(can_save, egui::Button::new(i18n::t("gui.editor.save")))
                     .clicked()
                 {
                     event = ConfigEditorEvent::Save;
@@ -814,9 +781,7 @@ pub fn show_rename(ctx: &egui::Context, flow: &mut RenameFlow) -> RenameEvent {
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.label(
-                    egui::RichText::new(i18n::t("gui.rename.current_name")).strong(),
-                );
+                ui.label(egui::RichText::new(i18n::t("gui.rename.current_name")).strong());
                 ui.monospace(&flow.old_name);
             });
 
@@ -826,9 +791,8 @@ pub fn show_rename(ctx: &egui::Context, flow: &mut RenameFlow) -> RenameEvent {
 
             let trimmed = flow.new_name.trim();
             let name_valid = !trimmed.is_empty()
-                && !trimmed.contains(|c: char| {
-                    matches!(c, '/' | '\\' | '\0' | ':') || c.is_whitespace()
-                });
+                && !trimmed
+                    .contains(|c: char| matches!(c, '/' | '\\' | '\0' | ':') || c.is_whitespace());
             let same_name = trimmed == flow.old_name;
             let duplicate = name_valid
                 && !same_name
@@ -862,10 +826,7 @@ pub fn show_rename(ctx: &egui::Context, flow: &mut RenameFlow) -> RenameEvent {
                 }
                 let can_rename = name_valid && !same_name && !duplicate;
                 if ui
-                    .add_enabled(
-                        can_rename,
-                        egui::Button::new(i18n::t("gui.rename.confirm")),
-                    )
+                    .add_enabled(can_rename, egui::Button::new(i18n::t("gui.rename.confirm")))
                     .clicked()
                 {
                     event = RenameEvent::Confirm;

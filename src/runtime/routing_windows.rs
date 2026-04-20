@@ -38,7 +38,11 @@ impl Routes {
     }
 
     pub fn apply_tunnel(&mut self, allowed_ips: &[IpNet]) -> Result<()> {
-        eprintln!("splitwg-svc: routing: applying {} tunnel route(s) via if {}", allowed_ips.len(), self.iface_index);
+        eprintln!(
+            "splitwg-svc: routing: applying {} tunnel route(s) via if {}",
+            allowed_ips.len(),
+            self.iface_index
+        );
         for net in allowed_ips {
             match net {
                 IpNet::V4(v4) if v4.prefix_len() == 0 => {
@@ -97,7 +101,11 @@ impl Routes {
                     let dest = v4.network().to_string();
                     let mask = v4.netmask().to_string();
                     run_route(&["add", &dest, "mask", &mask, &gw])?;
-                    self.added.push(AddedRoute { dest, mask, ipv6: false });
+                    self.added.push(AddedRoute {
+                        dest,
+                        mask,
+                        ipv6: false,
+                    });
                 }
                 IpNet::V6(_) => {
                     let spec = net.to_string();
@@ -116,9 +124,7 @@ impl Routes {
     pub fn cleanup(&mut self) {
         for route in self.added.drain(..) {
             if route.ipv6 {
-                let _ = Command::new("route")
-                    .args(["delete", &route.dest])
-                    .status();
+                let _ = Command::new("route").args(["delete", &route.dest]).status();
             } else {
                 let _ = Command::new("route")
                     .args(["delete", &route.dest, "mask", &route.mask])
@@ -158,8 +164,11 @@ impl Drop for Routes {
 
 pub fn lookup_gateway(_dest: IpAddr) -> Result<Option<IpAddr>> {
     let output = Command::new("powershell")
-        .args(["-NoProfile", "-Command",
-            "(Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1).NextHop"])
+        .args([
+            "-NoProfile",
+            "-Command",
+            "(Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1).NextHop",
+        ])
         .output()
         .context("failed to query default gateway")?;
     let gw = String::from_utf8_lossy(&output.stdout).trim().to_string();

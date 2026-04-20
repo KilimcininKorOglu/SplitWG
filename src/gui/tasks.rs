@@ -113,7 +113,9 @@ pub enum TaskResult {
         user_initiated: bool,
     },
     /// GeoLite2 MMDB pull completed — no hashes changed.
-    GeoDbUpToDate { user_initiated: bool },
+    GeoDbUpToDate {
+        user_initiated: bool,
+    },
     /// GeoLite2 MMDB pull failed (network, digest mismatch, missing
     /// entry). Surfaced as a toast only when the user initiated it.
     GeoDbUpdateFailed {
@@ -164,10 +166,18 @@ pub fn ensure_connected(
         }
     }
 
-    log::info!("splitwg: ensure_connected: calling mgr.connect for {:?}", cfg.name);
-    let result = mgr.connect(cfg).map_err(|e| ConnectError::ConnectFailed(e.to_string()));
+    log::info!(
+        "splitwg: ensure_connected: calling mgr.connect for {:?}",
+        cfg.name
+    );
+    let result = mgr
+        .connect(cfg)
+        .map_err(|e| ConnectError::ConnectFailed(e.to_string()));
     match &result {
-        Ok(()) => log::info!("splitwg: ensure_connected: {:?} connected successfully", cfg.name),
+        Ok(()) => log::info!(
+            "splitwg: ensure_connected: {:?} connected successfully",
+            cfg.name
+        ),
         Err(e) => log::error!("splitwg: ensure_connected: {:?} failed: {e:?}", cfg.name),
     }
     result
@@ -203,10 +213,7 @@ pub fn spawn_toggle(
             Ok(()) => TaskResult::Connected(name),
             Err(ConnectError::AuthDenied) => TaskResult::AuthDenied(name),
             Err(ConnectError::SetupFailed(msg) | ConnectError::ConnectFailed(msg)) => {
-                TaskResult::Error {
-                    name,
-                    message: msg,
-                }
+                TaskResult::Error { name, message: msg }
             }
         };
         let _ = tx.send(result);
@@ -442,9 +449,16 @@ pub fn spawn_geodb_update(tx: TaskTx, ctx: egui::Context, user_initiated: bool) 
 /// Fires a single `/sbin/ping -c 1 -W 1000 <host>` in a worker thread and
 /// posts the measured RTT (in milliseconds) back to the UI. On timeout or
 /// unreachable host the result is `None`.
-pub fn spawn_ping(tx: TaskTx, ctx: egui::Context, name: String, endpoint: String, dns: Vec<String>) {
+pub fn spawn_ping(
+    tx: TaskTx,
+    ctx: egui::Context,
+    name: String,
+    endpoint: String,
+    dns: Vec<String>,
+) {
     thread::spawn(move || {
-        let host = dns.first()
+        let host = dns
+            .first()
             .cloned()
             .unwrap_or_else(|| parse_host(&endpoint));
         #[cfg(target_os = "macos")]
@@ -530,4 +544,3 @@ mod tests {
         assert_eq!(parse_ping_ms(sample), None);
     }
 }
-

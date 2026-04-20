@@ -103,7 +103,11 @@ pub fn init() {
         detect_system_locale()
     };
     set_current(resolved);
-    log::info!("splitwg: i18n: active language set to {:?} ({})", resolved.code(), resolved.display_name());
+    log::info!(
+        "splitwg: i18n: active language set to {:?} ({})",
+        resolved.code(),
+        resolved.display_name()
+    );
 }
 
 /// Returns the language currently in effect. Never blocks meaningfully — the
@@ -180,7 +184,10 @@ pub fn detect_system_locale() -> Lang {
             let text = String::from_utf8_lossy(&out.stdout);
             if let Some(tag) = first_quoted_token(&text) {
                 if let Some(lang) = Lang::from_code(&tag) {
-                    log::info!("splitwg: i18n: detected locale from macOS AppleLanguages: {:?}", tag);
+                    log::info!(
+                        "splitwg: i18n: detected locale from macOS AppleLanguages: {:?}",
+                        tag
+                    );
                     return lang;
                 }
             }
@@ -188,13 +195,20 @@ pub fn detect_system_locale() -> Lang {
     }
     #[cfg(target_os = "windows")]
     if let Ok(out) = std::process::Command::new("powershell")
-        .args(["-NoProfile", "-Command", "(Get-Culture).TwoLetterISOLanguageName"])
+        .args([
+            "-NoProfile",
+            "-Command",
+            "(Get-Culture).TwoLetterISOLanguageName",
+        ])
         .output()
     {
         if out.status.success() {
             let code = String::from_utf8_lossy(&out.stdout).trim().to_string();
             if let Some(lang) = Lang::from_code(&code) {
-                log::info!("splitwg: i18n: detected locale from Windows culture: {:?}", code);
+                log::info!(
+                    "splitwg: i18n: detected locale from Windows culture: {:?}",
+                    code
+                );
                 return lang;
             }
         }
@@ -247,8 +261,8 @@ pub mod test_support {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::test_support::test_lock;
+    use super::*;
 
     #[test]
     fn lang_from_code_accepts_common_forms() {

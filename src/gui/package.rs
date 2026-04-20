@@ -50,7 +50,11 @@ struct ManifestTunnel {
 
 /// Writes a password-protected archive with the selected tunnels.
 pub fn export(dest: &Path, names: &[String], password: &str) -> Result<(), PackageError> {
-    log::info!("splitwg: package: exporting {} tunnel(s) to {:?}", names.len(), dest);
+    log::info!(
+        "splitwg: package: exporting {} tunnel(s) to {:?}",
+        names.len(),
+        dest
+    );
     if password.chars().count() < MIN_PASSWORD_LEN {
         return Err(PackageError::PasswordTooShort);
     }
@@ -103,7 +107,10 @@ pub fn export(dest: &Path, names: &[String], password: &str) -> Result<(), Packa
     zip.write_all(&manifest_bytes)?;
 
     zip.finish()?;
-    log::info!("splitwg: package: export complete with {} tunnel(s)", manifest.tunnels.len());
+    log::info!(
+        "splitwg: package: export complete with {} tunnel(s)",
+        manifest.tunnels.len()
+    );
     Ok(())
 }
 
@@ -121,7 +128,9 @@ pub fn import(src: &Path, password: &str) -> Result<Vec<String>, PackageError> {
             .by_name_decrypt("manifest.json", password.as_bytes())
             .map_err(map_zip_err)?;
         let mut body = String::new();
-        entry.read_to_string(&mut body).map_err(|_| PackageError::WrongPassword)?;
+        entry
+            .read_to_string(&mut body)
+            .map_err(|_| PackageError::WrongPassword)?;
         serde_json::from_str(&body).map_err(|_| PackageError::InvalidPackage)?
     };
 
@@ -135,16 +144,26 @@ pub fn import(src: &Path, password: &str) -> Result<Vec<String>, PackageError> {
     let mut imported = Vec::with_capacity(manifest.tunnels.len());
     for t in &manifest.tunnels {
         if has_forbidden_chars(&t.name) {
-            log::warn!("splitwg: package: skipping tunnel {:?} — forbidden characters in name", t.name);
+            log::warn!(
+                "splitwg: package: skipping tunnel {:?} — forbidden characters in name",
+                t.name
+            );
             continue;
         }
         let target_name = pick_unique_name(&t.name, &dir);
         let probe = dir.join(format!("{target_name}.conf"));
         if !probe.starts_with(&dir) {
-            log::warn!("splitwg: package: skipping tunnel {:?} — path traversal detected", t.name);
+            log::warn!(
+                "splitwg: package: skipping tunnel {:?} — path traversal detected",
+                t.name
+            );
             continue;
         }
-        log::info!("splitwg: package: importing tunnel {:?} as {:?}", t.name, target_name);
+        log::info!(
+            "splitwg: package: importing tunnel {:?} as {:?}",
+            t.name,
+            target_name
+        );
 
         // .conf
         {
@@ -166,8 +185,8 @@ pub fn import(src: &Path, password: &str) -> Result<Vec<String>, PackageError> {
                 let mut body = Vec::new();
                 entry.read_to_end(&mut body)?;
                 // Validate JSON so we never persist garbage rules files.
-                let _: Rules = serde_json::from_slice(&body)
-                    .map_err(|_| PackageError::InvalidPackage)?;
+                let _: Rules =
+                    serde_json::from_slice(&body).map_err(|_| PackageError::InvalidPackage)?;
                 let path = dir.join(format!("{target_name}.rules.json"));
                 write_with_mode(&path, &body, 0o644)?;
             }
@@ -176,7 +195,10 @@ pub fn import(src: &Path, password: &str) -> Result<Vec<String>, PackageError> {
         imported.push(target_name);
     }
 
-    log::info!("splitwg: package: import complete, {} tunnel(s) imported", imported.len());
+    log::info!(
+        "splitwg: package: import complete, {} tunnel(s) imported",
+        imported.len()
+    );
     Ok(imported)
 }
 
@@ -228,7 +250,12 @@ fn restrict_file_acl(path: &Path) {
     let path_str = path.to_string_lossy();
     let user = std::env::var("USERNAME").unwrap_or_else(|_| "SYSTEM".to_string());
     let _ = std::process::Command::new("icacls")
-        .args([&*path_str, "/inheritance:r", "/grant:r", &format!("{user}:F")])
+        .args([
+            &*path_str,
+            "/inheritance:r",
+            "/grant:r",
+            &format!("{user}:F"),
+        ])
         .status();
 }
 

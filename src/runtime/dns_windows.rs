@@ -59,9 +59,7 @@ impl Dns {
             .map(|s| s.to_string())
             .collect::<Vec<_>>()
             .join(",");
-        let nrpt_cmd = format!(
-            "Add-DnsclientNrptRule -Namespace '.' -NameServers '{dns_csv}'"
-        );
+        let nrpt_cmd = format!("Add-DnsclientNrptRule -Namespace '.' -NameServers '{dns_csv}'");
         let status = Command::new("powershell")
             .args(["-NoProfile", "-Command", &nrpt_cmd])
             .status()

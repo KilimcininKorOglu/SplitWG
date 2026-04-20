@@ -115,12 +115,16 @@ async fn handle_client(
                             shutdown_tx: tx,
                         };
                         tunnels.lock().await.insert(tunnel_name.clone(), state);
-                        let event = Event::Ready { iface: tunnel_name.clone() };
+                        let event = Event::Ready {
+                            iface: tunnel_name.clone(),
+                        };
                         let json = serde_json::to_string(&event).unwrap();
                         let _ = writer.write_all(format!("{json}\n").as_bytes()).await;
                     }
                     Err(e) => {
-                        let event = Event::Error { message: format!("{e:#}") };
+                        let event = Event::Error {
+                            message: format!("{e:#}"),
+                        };
                         let json = serde_json::to_string(&event).unwrap();
                         let _ = writer.write_all(format!("{json}\n").as_bytes()).await;
                     }

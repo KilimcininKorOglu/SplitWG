@@ -41,7 +41,11 @@ impl Routes {
     /// halves so the kernel keeps the real default route (needed for
     /// handshake / endpoint traffic).
     pub fn apply_tunnel(&mut self, allowed_ips: &[IpNet]) -> Result<()> {
-        eprintln!("splitwg-helper: routing: applying {} tunnel route(s) via {}", allowed_ips.len(), self.iface);
+        eprintln!(
+            "splitwg-helper: routing: applying {} tunnel route(s) via {}",
+            allowed_ips.len(),
+            self.iface
+        );
         for net in allowed_ips {
             match net {
                 IpNet::V4(v4) if v4.prefix_len() == 0 => {
@@ -50,18 +54,26 @@ impl Routes {
                     self.add_via_iface(SPLIT_V4_B, false)?;
                 }
                 IpNet::V6(v6) if v6.prefix_len() == 0 => {
-                    eprintln!("splitwg-helper: routing: splitting ::/0 into {SPLIT_V6_A} + {SPLIT_V6_B}");
+                    eprintln!(
+                        "splitwg-helper: routing: splitting ::/0 into {SPLIT_V6_A} + {SPLIT_V6_B}"
+                    );
                     self.add_via_iface(SPLIT_V6_A, true)?;
                     self.add_via_iface(SPLIT_V6_B, true)?;
                 }
                 other => {
-                    eprintln!("splitwg-helper: routing: adding tunnel route {other} via {}", self.iface);
+                    eprintln!(
+                        "splitwg-helper: routing: adding tunnel route {other} via {}",
+                        self.iface
+                    );
                     let ipv6 = matches!(other, IpNet::V6(_));
                     self.add_via_iface(&other.to_string(), ipv6)?;
                 }
             }
         }
-        eprintln!("splitwg-helper: routing: {} tunnel route(s) added", self.added.len());
+        eprintln!(
+            "splitwg-helper: routing: {} tunnel route(s) added",
+            self.added.len()
+        );
         Ok(())
     }
 
@@ -80,7 +92,10 @@ impl Routes {
 
     /// Exclude-mode bypass: listed CIDRs skip the tunnel.
     pub fn apply_exclude(&mut self, entries: &[IpNet], gateway: IpAddr) -> Result<()> {
-        eprintln!("splitwg-helper: routing: applying {} exclude route(s) via gateway {gateway}", entries.len());
+        eprintln!(
+            "splitwg-helper: routing: applying {} exclude route(s) via gateway {gateway}",
+            entries.len()
+        );
         for net in entries {
             eprintln!("splitwg-helper: routing: adding exclude route {net} via {gateway}");
             let ipv6 = matches!(net, IpNet::V6(_));

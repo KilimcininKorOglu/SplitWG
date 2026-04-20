@@ -25,22 +25,35 @@ impl WfpAnchor {
         eprintln!("splitwg-svc: wfp: loading kill switch for {iface}");
 
         run_netsh(&[
-            "advfirewall", "firewall", "add", "rule",
+            "advfirewall",
+            "firewall",
+            "add",
+            "rule",
             &format!("name={RULE_ALLOW_LOOPBACK}"),
-            "dir=out", "action=allow", "interface=Loopback",
+            "dir=out",
+            "action=allow",
+            "interface=Loopback",
         ])?;
 
         run_netsh(&[
-            "advfirewall", "firewall", "add", "rule",
+            "advfirewall",
+            "firewall",
+            "add",
+            "rule",
             &format!("name={RULE_ALLOW_TUNNEL}"),
-            "dir=out", "action=allow",
+            "dir=out",
+            "action=allow",
             &format!("interface={iface}"),
         ])?;
 
         run_netsh(&[
-            "advfirewall", "firewall", "add", "rule",
+            "advfirewall",
+            "firewall",
+            "add",
+            "rule",
             &format!("name={RULE_BLOCK}"),
-            "dir=out", "action=block",
+            "dir=out",
+            "action=block",
         ])?;
 
         eprintln!("splitwg-svc: wfp: kill switch active");
@@ -74,7 +87,10 @@ pub fn preemptive_flush() {
 
 fn delete_rule(name: &str) -> Result<()> {
     run_netsh(&[
-        "advfirewall", "firewall", "delete", "rule",
+        "advfirewall",
+        "firewall",
+        "delete",
+        "rule",
         &format!("name={name}"),
     ])
 }

@@ -99,7 +99,10 @@ impl PfAnchor {
             .output();
         match status {
             Ok(o) if o.status.success() => {
-                eprintln!("splitwg-helper: pf: anchor {} flushed successfully", self.anchor);
+                eprintln!(
+                    "splitwg-helper: pf: anchor {} flushed successfully",
+                    self.anchor
+                );
             }
             Ok(o) => {
                 eprintln!(

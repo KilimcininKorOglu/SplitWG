@@ -18,11 +18,9 @@ use once_cell::sync::Lazy;
 /// Cached mmdb reader. `Lazy` defers the first load until someone actually
 /// uses a `country:XX` rule; `Mutex<Option<...>>` lets us try again (after
 /// the user places the file) without restarting the app.
-static READER: Lazy<Mutex<Option<maxminddb::Reader<Vec<u8>>>>> =
-    Lazy::new(|| Mutex::new(None));
+static READER: Lazy<Mutex<Option<maxminddb::Reader<Vec<u8>>>>> = Lazy::new(|| Mutex::new(None));
 
-static ASN_READER: Lazy<Mutex<Option<maxminddb::Reader<Vec<u8>>>>> =
-    Lazy::new(|| Mutex::new(None));
+static ASN_READER: Lazy<Mutex<Option<maxminddb::Reader<Vec<u8>>>>> = Lazy::new(|| Mutex::new(None));
 
 /// Returns the full filesystem path search order for `GeoLite2-Country.mmdb`.
 /// Exposed for the Rules tab so it can show an informative message when
@@ -41,11 +39,7 @@ pub fn search_paths() -> Vec<PathBuf> {
         // exe: …/SplitWG.app/Contents/MacOS/splitwg → …/Contents/Resources/
         if let Some(macos_dir) = exe.parent() {
             if let Some(contents_dir) = macos_dir.parent() {
-                out.push(
-                    contents_dir
-                        .join("Resources")
-                        .join("GeoLite2-Country.mmdb"),
-                );
+                out.push(contents_dir.join("Resources").join("GeoLite2-Country.mmdb"));
             }
         }
     }
@@ -83,11 +77,7 @@ pub fn asn_search_paths() -> Vec<PathBuf> {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(macos_dir) = exe.parent() {
             if let Some(contents_dir) = macos_dir.parent() {
-                out.push(
-                    contents_dir
-                        .join("Resources")
-                        .join("GeoLite2-ASN.mmdb"),
-                );
+                out.push(contents_dir.join("Resources").join("GeoLite2-ASN.mmdb"));
             }
         }
     }
@@ -187,11 +177,7 @@ pub fn expand_country(code: &str) -> Vec<String> {
             }
         }
     }
-    log::info!(
-        "splitwg: geo: country:{} → {} CIDRs",
-        wanted,
-        out.len()
-    );
+    log::info!("splitwg: geo: country:{} → {} CIDRs", wanted, out.len());
     out
 }
 

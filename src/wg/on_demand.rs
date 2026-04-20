@@ -70,7 +70,10 @@ pub fn decide(rule: &OnDemandRule, state: &NetState) -> Desired {
             .iter()
             .any(|s| s.eq_ignore_ascii_case(ssid))
         {
-            log::info!("splitwg: on_demand: SSID {:?} is untrusted -> Disconnect", ssid);
+            log::info!(
+                "splitwg: on_demand: SSID {:?} is untrusted -> Disconnect",
+                ssid
+            );
             return Desired::Disconnect;
         }
         if rule
@@ -148,7 +151,10 @@ mod tests {
 
     #[test]
     fn always_connects_regardless_of_network() {
-        let r = OnDemandRule { always: true, ..Default::default() };
+        let r = OnDemandRule {
+            always: true,
+            ..Default::default()
+        };
         assert_eq!(decide(&r, &NetState::default()), Desired::Connect);
     }
 

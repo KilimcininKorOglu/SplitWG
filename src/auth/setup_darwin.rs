@@ -25,10 +25,7 @@ pub fn is_setup_done() -> bool {
 
 pub fn sudoers_rule(helper_path: &Path) -> String {
     let user = std::env::var("USER").unwrap_or_else(|_| "root".to_string());
-    format!(
-        "{user} ALL=(ALL) NOPASSWD: {}",
-        helper_path.display()
-    )
+    format!("{user} ALL=(ALL) NOPASSWD: {}", helper_path.display())
 }
 
 /// Installs the sudoers rule via a one-time password prompt.
@@ -79,7 +76,10 @@ fn locate_helper() -> Result<PathBuf, String> {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             let candidate = dir.join("splitwg-helper");
-            log::info!("splitwg: setup: trying sibling path {}", candidate.display());
+            log::info!(
+                "splitwg: setup: trying sibling path {}",
+                candidate.display()
+            );
             if candidate.is_file() {
                 log::info!("splitwg: setup: found helper as sibling of executable");
                 return candidate
@@ -116,7 +116,9 @@ mod tests {
 
     #[test]
     fn sudoers_rule_pins_helper_path() {
-        let rule = sudoers_rule(Path::new("/Applications/SplitWG.app/Contents/MacOS/splitwg-helper"));
+        let rule = sudoers_rule(Path::new(
+            "/Applications/SplitWG.app/Contents/MacOS/splitwg-helper",
+        ));
         let user = std::env::var("USER").unwrap_or_else(|_| "root".to_string());
         assert_eq!(
             rule,

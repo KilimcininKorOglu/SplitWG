@@ -44,7 +44,10 @@ pub fn decode_from_clipboard() -> Result<String, QrError> {
         log::warn!("splitwg: qr: clipboard has no image data");
         QrError::ClipboardEmpty
     })?;
-    log::info!("splitwg: qr: clipboard image loaded ({} bytes)", bytes.len());
+    log::info!(
+        "splitwg: qr: clipboard image loaded ({} bytes)",
+        bytes.len()
+    );
     let img = image::load_from_memory(&bytes)?;
     let result = decode_dynamic(img);
     match &result {

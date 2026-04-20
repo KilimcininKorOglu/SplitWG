@@ -45,25 +45,24 @@ impl RulesTabState {
                 ),
                 None => (false, String::new(), String::new()),
             };
-        let (schedule_enabled, schedule_days, schedule_hour_start, schedule_hour_end) =
-            match cfg.rules.on_demand.as_ref().and_then(|r| r.schedule.as_ref()) {
-                Some(s) => {
-                    let mut days = [false; 7];
-                    for (i, d) in days.iter_mut().enumerate() {
-                        *d = s.weekdays_mask & (1 << i) != 0;
-                    }
-                    (true, days, s.hour_start, s.hour_end)
+        let (schedule_enabled, schedule_days, schedule_hour_start, schedule_hour_end) = match cfg
+            .rules
+            .on_demand
+            .as_ref()
+            .and_then(|r| r.schedule.as_ref())
+        {
+            Some(s) => {
+                let mut days = [false; 7];
+                for (i, d) in days.iter_mut().enumerate() {
+                    *d = s.weekdays_mask & (1 << i) != 0;
                 }
-                // Sensible default draft when the user first enables schedule:
-                // Mon-Fri (bits 0..=4), 09:00–18:00. Disabled until the user
-                // ticks the box.
-                None => (
-                    false,
-                    [true, true, true, true, true, false, false],
-                    9,
-                    18,
-                ),
-            };
+                (true, days, s.hour_start, s.hour_end)
+            }
+            // Sensible default draft when the user first enables schedule:
+            // Mon-Fri (bits 0..=4), 09:00–18:00. Disabled until the user
+            // ticks the box.
+            None => (false, [true, true, true, true, true, false, false], 9, 18),
+        };
         let exclusive_group_draft = cfg
             .rules
             .on_demand
@@ -99,11 +98,7 @@ impl RulesTabState {
             self.current.on_demand = None;
             return;
         }
-        let mut rule = self
-            .current
-            .on_demand
-            .clone()
-            .unwrap_or_default();
+        let mut rule = self.current.on_demand.clone().unwrap_or_default();
         rule.trusted_ssids = parse_csv(&self.trusted_ssids_draft);
         rule.untrusted_ssids = parse_csv(&self.untrusted_ssids_draft);
         rule.schedule = if self.schedule_enabled {
@@ -144,17 +139,16 @@ pub enum RulesEvent {
     None,
     /// User hit "Apply & Reconnect" — persist rules and (if active) cycle
     /// the tunnel. `Rules` is passed by value to simplify the worker.
-    Apply { name: String, rules: Rules },
+    Apply {
+        name: String,
+        rules: Rules,
+    },
 }
 
 /// Renders the Rules tab. `state` is borrowed mutably so inline edits and
 /// the ComboBox mutate the draft directly; `App` persists once the user
 /// hits Apply.
-pub fn show(
-    ui: &mut egui::Ui,
-    state: &mut RulesTabState,
-    global_hooks_on: bool,
-) -> RulesEvent {
+pub fn show(ui: &mut egui::Ui, state: &mut RulesTabState, global_hooks_on: bool) -> RulesEvent {
     let mut event = RulesEvent::None;
 
     // Warn the user when `country:XX` entries are present but the mmdb is
@@ -173,9 +167,7 @@ pub fn show(
     }
 
     ui.horizontal(|ui| {
-        ui.label(
-            egui::RichText::new(i18n::t("gui.rules.mode_label")).strong(),
-        );
+        ui.label(egui::RichText::new(i18n::t("gui.rules.mode_label")).strong());
         let current_label = if state.current.mode == "include" {
             i18n::t("gui.rules.mode_include")
         } else {
@@ -276,16 +268,14 @@ pub fn show(
                                 _ => {
                                     ui.monospace(entry);
                                 }
-                            },
-                            );
+                            });
                             row.col(|ui| {
                                 let kind_label = kind_label(classify(entry));
                                 ui.label(kind_label);
                             });
                             row.col(|ui| {
                                 ui.horizontal(|ui| {
-                                    let editing =
-                                        matches!(state.editing, Some((i, _)) if i == idx);
+                                    let editing = matches!(state.editing, Some((i, _)) if i == idx);
                                     if editing {
                                         if ui.small_button("✓").clicked() {
                                             cancel_edit = true;
@@ -294,16 +284,10 @@ pub fn show(
                                             cancel_edit = true;
                                         }
                                     } else {
-                                        if ui
-                                            .small_button(i18n::t("gui.rules.edit"))
-                                            .clicked()
-                                        {
+                                        if ui.small_button(i18n::t("gui.rules.edit")).clicked() {
                                             begin_edit = Some(idx);
                                         }
-                                        if ui
-                                            .small_button(i18n::t("gui.rules.delete"))
-                                            .clicked()
-                                        {
+                                        if ui.small_button(i18n::t("gui.rules.delete")).clicked() {
                                             remove_idx = Some(idx);
                                         }
                                     }
@@ -322,12 +306,8 @@ pub fn show(
                         }
                     }
                     if let Some(idx) = begin_edit {
-                        let current_text = state
-                            .current
-                            .entries
-                            .get(idx)
-                            .cloned()
-                            .unwrap_or_default();
+                        let current_text =
+                            state.current.entries.get(idx).cloned().unwrap_or_default();
                         state.editing = Some((idx, current_text));
                     }
                     if cancel_edit {
@@ -345,7 +325,9 @@ pub fn show(
         } else {
             egui::Color32::from_rgb(90, 30, 30)
         };
-        let frame = egui::Frame::none().fill(bg).inner_margin(egui::Margin::same(2.0));
+        let frame = egui::Frame::none()
+            .fill(bg)
+            .inner_margin(egui::Margin::same(2.0));
         frame.show(ui, |ui| {
             ui.add(
                 egui::TextEdit::singleline(&mut state.new_entry)
@@ -353,10 +335,12 @@ pub fn show(
                     .hint_text(i18n::t("gui.rules.add_placeholder")),
             );
         });
-        let add_enabled =
-            !state.new_entry.trim().is_empty() && is_valid_entry(&state.new_entry);
+        let add_enabled = !state.new_entry.trim().is_empty() && is_valid_entry(&state.new_entry);
         if ui
-            .add_enabled(add_enabled, egui::Button::new(i18n::t("gui.rules.add_button")))
+            .add_enabled(
+                add_enabled,
+                egui::Button::new(i18n::t("gui.rules.add_button")),
+            )
             .clicked()
         {
             state
@@ -399,10 +383,7 @@ pub fn show(
                 &i18n::t("notify.splitwg"),
                 &i18n::t_with(
                     "gui.rules.templates.added",
-                    &[
-                        ("count", &added.to_string()),
-                        ("name", &tmpl_label),
-                    ],
+                    &[("count", &added.to_string()), ("name", &tmpl_label)],
                 ),
             );
         }
@@ -419,14 +400,13 @@ pub fn show(
                 i18n::t("gui.rules.on_demand.enable_label"),
             );
             ui.add_enabled_ui(state.on_demand_enabled, |ui| {
-                let mut rule = state
-                    .current
-                    .on_demand
-                    .clone()
-                    .unwrap_or_default();
+                let mut rule = state.current.on_demand.clone().unwrap_or_default();
                 let mut changed = false;
                 if ui
-                    .checkbox(&mut rule.always, i18n::t("gui.rules.on_demand.always_label"))
+                    .checkbox(
+                        &mut rule.always,
+                        i18n::t("gui.rules.on_demand.always_label"),
+                    )
                     .changed()
                 {
                     changed = true;
@@ -454,9 +434,7 @@ pub fn show(
                     ui.add(
                         egui::TextEdit::singleline(&mut state.trusted_ssids_draft)
                             .desired_width(260.0)
-                            .hint_text(i18n::t(
-                                "gui.rules.on_demand.trusted_ssids_placeholder",
-                            )),
+                            .hint_text(i18n::t("gui.rules.on_demand.trusted_ssids_placeholder")),
                     );
                 });
                 ui.horizontal(|ui| {
@@ -464,9 +442,7 @@ pub fn show(
                     ui.add(
                         egui::TextEdit::singleline(&mut state.untrusted_ssids_draft)
                             .desired_width(260.0)
-                            .hint_text(i18n::t(
-                                "gui.rules.on_demand.untrusted_ssids_placeholder",
-                            )),
+                            .hint_text(i18n::t("gui.rules.on_demand.untrusted_ssids_placeholder")),
                     );
                 });
                 if changed {
@@ -509,11 +485,9 @@ pub fn show(
                         );
                     });
                     ui.label(
-                        egui::RichText::new(i18n::t(
-                            "gui.rules.on_demand.schedule.hint_overnight",
-                        ))
-                        .italics()
-                        .small(),
+                        egui::RichText::new(i18n::t("gui.rules.on_demand.schedule.hint_overnight"))
+                            .italics()
+                            .small(),
                     );
                 });
 
@@ -579,9 +553,7 @@ pub fn show(
             ui.add(
                 egui::TextEdit::singleline(&mut state.exclusive_group_draft)
                     .desired_width(160.0)
-                    .hint_text(i18n::t(
-                        "gui.rules.on_demand.exclusive_group_placeholder",
-                    )),
+                    .hint_text(i18n::t("gui.rules.on_demand.exclusive_group_placeholder")),
             );
         });
         ui.label(
@@ -611,11 +583,7 @@ pub fn show(
 /// `OnDemandRule` from the drafts and compares it with `original`.
 fn draft_differs_from_original(state: &RulesTabState) -> bool {
     let computed: Option<OnDemandRule> = if state.on_demand_enabled {
-        let mut rule = state
-            .current
-            .on_demand
-            .clone()
-            .unwrap_or_default();
+        let mut rule = state.current.on_demand.clone().unwrap_or_default();
         rule.trusted_ssids = parse_csv(&state.trusted_ssids_draft);
         rule.untrusted_ssids = parse_csv(&state.untrusted_ssids_draft);
         rule.schedule = if state.schedule_enabled {

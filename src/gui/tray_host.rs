@@ -156,8 +156,7 @@ impl TrayHost {
         let add_item = MenuItem::new(i18n::t("tray.menu.add_config"), true, None);
         let open_dir_item = MenuItem::new(i18n::t("tray.menu.open_config_dir"), true, None);
         let logs_item = MenuItem::new(i18n::t("tray.menu.view_logs"), true, None);
-        let manage_tunnels_item =
-            MenuItem::new(i18n::t("tray.menu.manage_tunnels"), true, None);
+        let manage_tunnels_item = MenuItem::new(i18n::t("tray.menu.manage_tunnels"), true, None);
 
         let prefs_submenu = Submenu::new(i18n::t("tray.menu.preferences"), true);
         let hooks_toggle_item = MenuItem::new(hooks_toggle_label(), true, None);
@@ -168,11 +167,8 @@ impl TrayHost {
             true,
             None,
         );
-        let update_geodb_item = MenuItem::new(
-            i18n::t("tray.submenu.preferences.update_geodb"),
-            true,
-            None,
-        );
+        let update_geodb_item =
+            MenuItem::new(i18n::t("tray.submenu.preferences.update_geodb"), true, None);
         let lang_submenu = Submenu::new(language_label(), true);
         let lang_en_item = MenuItem::new(
             i18n::t("tray.submenu.preferences.language.english"),
@@ -249,7 +245,10 @@ impl TrayHost {
             });
         }
 
-        log::info!("splitwg: tray: menu construction complete, {} slots allocated", MAX_SLOTS);
+        log::info!(
+            "splitwg: tray: menu construction complete, {} slots allocated",
+            MAX_SLOTS
+        );
 
         Ok(TrayHost {
             _tray: tray,
@@ -422,14 +421,10 @@ impl TrayHost {
             Ok(()) => {
                 let new_state = login_item::status();
                 let (title_key, body_key) = match new_state {
-                    LoginItemState::Enabled => (
-                        "notify.splitwg",
-                        "notify.launch_at_login.enabled",
-                    ),
-                    LoginItemState::RequiresApproval => (
-                        "notify.splitwg",
-                        "notify.launch_at_login.requires_approval",
-                    ),
+                    LoginItemState::Enabled => ("notify.splitwg", "notify.launch_at_login.enabled"),
+                    LoginItemState::RequiresApproval => {
+                        ("notify.splitwg", "notify.launch_at_login.requires_approval")
+                    }
                     _ => ("notify.splitwg", "notify.launch_at_login.disabled"),
                 };
                 notify::info(&i18n::t(title_key), &i18n::t(body_key));
@@ -437,10 +432,7 @@ impl TrayHost {
             }
             Err(e) => {
                 log::warn!("gui: tray: launch at login toggle: {e}");
-                notify::error(
-                    &i18n::t("notify.login_item_failed"),
-                    &e,
-                );
+                notify::error(&i18n::t("notify.login_item_failed"), &e);
             }
         }
         self.last_refresh = Instant::now() - Duration::from_secs(10);
@@ -482,7 +474,11 @@ impl TrayHost {
     }
 
     fn handle_language_switch(&mut self, lang: Lang) {
-        log::info!("splitwg: tray: language switch {} -> {}", i18n::current().code(), lang.code());
+        log::info!(
+            "splitwg: tray: language switch {} -> {}",
+            i18n::current().code(),
+            lang.code()
+        );
         i18n::set_current(lang);
         let mut s = config::load_settings();
         s.language = Some(lang.code().to_string());
@@ -533,8 +529,7 @@ impl TrayHost {
         for (i, slot) in self.slots.iter().enumerate() {
             let mut in_menu = slot.in_menu.lock().unwrap();
             if let Some(cfg) = cfgs.get(i) {
-                let connected = mgr.is_active(&cfg.name)
-;
+                let connected = mgr.is_active(&cfg.name);
                 if connected {
                     any_connected = true;
                 }
@@ -598,8 +593,7 @@ impl TrayHost {
         self.prefs_submenu
             .set_text(i18n::t("tray.menu.preferences"));
         self.hooks_toggle_item.set_text(hooks_toggle_label());
-        self.launch_at_login_item
-            .set_text(launch_at_login_label());
+        self.launch_at_login_item.set_text(launch_at_login_label());
         self.kill_switch_item.set_text(kill_switch_label());
         self.check_updates_item
             .set_text(i18n::t("tray.submenu.preferences.check_updates"));
@@ -744,10 +738,7 @@ fn hooks_toggle_label() -> String {
         "tray.submenu.preferences.hooks_state.off"
     };
     let state = i18n::t(state_key);
-    i18n::t_with(
-        "tray.submenu.preferences.hooks_label",
-        &[("state", &state)],
-    )
+    i18n::t_with("tray.submenu.preferences.hooks_label", &[("state", &state)])
 }
 
 fn launch_at_login_label() -> String {
@@ -761,7 +752,10 @@ fn launch_at_login_label() -> String {
         }
         _ => i18n::t_with(
             "tray.submenu.preferences.launch_at_login_label",
-            &[("state", &i18n::t("tray.submenu.preferences.hooks_state.off"))],
+            &[(
+                "state",
+                &i18n::t("tray.submenu.preferences.hooks_state.off"),
+            )],
         ),
     }
 }

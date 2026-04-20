@@ -82,11 +82,7 @@ pub fn show(
                 DetailTab::Rules,
                 i18n::t("gui.detail.tab_rules"),
             );
-            ui.selectable_value(
-                active_tab,
-                DetailTab::Logs,
-                i18n::t("gui.detail.tab_logs"),
-            );
+            ui.selectable_value(active_tab, DetailTab::Logs, i18n::t("gui.detail.tab_logs"));
         });
         ui.separator();
 

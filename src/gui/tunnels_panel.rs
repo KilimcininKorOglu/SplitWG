@@ -29,10 +29,7 @@ pub fn show(
                         event = PanelEvent::AddConfig;
                         ui.close_menu();
                     }
-                    if ui
-                        .button(i18n::t("gui.tunnels.add_menu.qr_file"))
-                        .clicked()
-                    {
+                    if ui.button(i18n::t("gui.tunnels.add_menu.qr_file")).clicked() {
                         event = PanelEvent::AddConfigQrFile;
                         ui.close_menu();
                     }
@@ -54,10 +51,7 @@ pub fn show(
                 {
                     event = PanelEvent::DeleteSelected;
                 }
-                if ui
-                    .button(i18n::t("gui.tunnels.preferences"))
-                    .clicked()
-                {
+                if ui.button(i18n::t("gui.tunnels.preferences")).clicked() {
                     event = PanelEvent::OpenPreferences;
                 }
             });
@@ -77,8 +71,7 @@ pub fn show(
                     return;
                 }
                 for cfg in configs {
-                    let is_active = mgr.is_active(&cfg.name)
-;
+                    let is_active = mgr.is_active(&cfg.name);
                     let dot_color = if is_active {
                         egui::Color32::from_rgb(80, 180, 100)
                     } else {

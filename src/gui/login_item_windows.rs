@@ -46,8 +46,7 @@ pub fn register() -> Result<(), String> {
         let run = hkcu
             .open_subkey_with_flags(RUN_KEY, KEY_SET_VALUE)
             .map_err(|e| format!("failed to open Run key: {e}"))?;
-        let exe = std::env::current_exe()
-            .map_err(|e| format!("failed to get exe path: {e}"))?;
+        let exe = std::env::current_exe().map_err(|e| format!("failed to get exe path: {e}"))?;
         run.set_value(VALUE_NAME, &exe.to_string_lossy().to_string())
             .map_err(|e| format!("failed to set registry value: {e}"))?;
     }

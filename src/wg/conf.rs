@@ -63,7 +63,10 @@ impl std::fmt::Debug for PeerConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PeerConfig")
             .field("public_key", &"[REDACTED]")
-            .field("preshared_key", &self.preshared_key.as_ref().map(|_| "[REDACTED]"))
+            .field(
+                "preshared_key",
+                &self.preshared_key.as_ref().map(|_| "[REDACTED]"),
+            )
             .field("allowed_ips", &self.allowed_ips)
             .field("endpoint", &self.endpoint)
             .field("persistent_keepalive", &self.persistent_keepalive)
@@ -194,12 +197,7 @@ impl PartialPeer {
     }
 }
 
-fn apply_interface(
-    iface: &mut InterfaceConfig,
-    key: &str,
-    value: &str,
-    line: usize,
-) -> Result<()> {
+fn apply_interface(iface: &mut InterfaceConfig, key: &str, value: &str, line: usize) -> Result<()> {
     match key {
         "privatekey" => {
             iface.private_key =
@@ -307,9 +305,7 @@ fn parse_cidr(s: &str) -> Result<IpNet> {
     if s.contains('/') {
         IpNet::from_str(s).map_err(|e| anyhow!("invalid CIDR `{s}`: {e}"))
     } else {
-        let ip: IpAddr = s
-            .parse()
-            .map_err(|e| anyhow!("invalid IP `{s}`: {e}"))?;
+        let ip: IpAddr = s.parse().map_err(|e| anyhow!("invalid IP `{s}`: {e}"))?;
         let prefix = if ip.is_ipv4() { 32 } else { 128 };
         IpNet::new(ip, prefix).map_err(|e| anyhow!("CIDR from IP `{s}`: {e}"))
     }
@@ -357,7 +353,10 @@ mod tests {
              [Peer]\nPublicKey = {PEER_KEY_B64}\nAllowedIPs = 0.0.0.0/0\nEndpoint = 1.2.3.4:51820\n"
         );
         let cfg = parse(&body).expect("parse ok");
-        assert_eq!(cfg.interface.addresses, vec!["10.0.0.2/32".parse().unwrap()]);
+        assert_eq!(
+            cfg.interface.addresses,
+            vec!["10.0.0.2/32".parse().unwrap()]
+        );
         assert_eq!(cfg.peers.len(), 1);
         let peer = &cfg.peers[0];
         assert_eq!(peer.allowed_ips, vec!["0.0.0.0/0".parse().unwrap()]);
@@ -500,13 +499,15 @@ mod tests {
 
     #[test]
     fn parse_missing_private_key_fails() {
-        let body = format!("[Interface]\nAddress = 10.0.0.2/32\n[Peer]\nPublicKey = {PEER_KEY_B64}\n");
+        let body =
+            format!("[Interface]\nAddress = 10.0.0.2/32\n[Peer]\nPublicKey = {PEER_KEY_B64}\n");
         assert!(parse(&body).is_err());
     }
 
     #[test]
     fn parse_missing_peer_public_key_fails() {
-        let body = format!("[Interface]\nPrivateKey = {IFACE_KEY_B64}\n[Peer]\nAllowedIPs = 0.0.0.0/0\n");
+        let body =
+            format!("[Interface]\nPrivateKey = {IFACE_KEY_B64}\n[Peer]\nAllowedIPs = 0.0.0.0/0\n");
         assert!(parse(&body).is_err());
     }
 
