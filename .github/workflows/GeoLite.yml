@@ -2,6 +2,7 @@ name: GeoLite-DB-Auto-Updater
 
 on:
   repository_dispatch:
+    types: [geolite-refresh]
   workflow_dispatch:
   schedule:
     - cron: '0 4 * * *'
