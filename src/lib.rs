@@ -17,4 +17,6 @@ pub mod icon;
 pub mod ipc;
 pub mod notify;
 pub mod runtime;
+#[cfg(target_os = "windows")]
+pub mod service;
 pub mod wg;
