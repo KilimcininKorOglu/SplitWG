@@ -335,5 +335,12 @@
   "about.title": "SplitWG Hakkında",
   "about.copyright": "2026 KilimcininKorOglu",
   "about.github": "GitHub",
-  "about.developer": "Geliştirici"
+  "about.developer": "Geliştirici",
+  "gui.url_confirm.title": "URL Şeması Eylemi",
+  "gui.url_confirm.connect": "bağlan",
+  "gui.url_confirm.disconnect": "bağlantıyı kes",
+  "gui.url_confirm.toggle": "değiştir",
+  "gui.url_confirm.message": "Harici bir uygulama \"{name}\" tünelini {action} istiyor. İzin verilsin mi?",
+  "gui.url_confirm.allow": "İzin Ver",
+  "gui.url_confirm.deny": "Reddet"
 }

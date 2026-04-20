@@ -335,5 +335,12 @@
   "about.title": "About SplitWG",
   "about.copyright": "2026 KilimcininKorOglu",
   "about.github": "GitHub",
-  "about.developer": "Developer"
+  "about.developer": "Developer",
+  "gui.url_confirm.title": "URL Scheme Action",
+  "gui.url_confirm.connect": "connect",
+  "gui.url_confirm.disconnect": "disconnect",
+  "gui.url_confirm.toggle": "toggle",
+  "gui.url_confirm.message": "An external application wants to {action} tunnel \"{name}\". Allow?",
+  "gui.url_confirm.allow": "Allow",
+  "gui.url_confirm.deny": "Deny"
 }

@@ -117,6 +117,7 @@ pub struct App {
     /// Receiver for `x-splitwg://` URL scheme events. Populated by the
     /// AppleEvent handler installed at `App::new`; drained every frame.
     url_rx: mpsc::Receiver<super::url_scheme::UrlAction>,
+    pending_url_action: Option<(super::url_scheme::UrlAction, Config)>,
 
     /// Latest update announcement seeded by `TaskResult::UpdateAvailable`.
     /// Phase 3 extends this into a download/ready state machine; Phase 2
@@ -265,6 +266,7 @@ impl App {
             watchdog_state: HashMap::new(),
             last_watchdog_check: Instant::now() - Duration::from_secs(60),
             url_rx,
+            pending_url_action: None,
             pending_update: None,
             update_check_inflight: false,
             last_manual_update_click: None,
@@ -366,7 +368,7 @@ impl App {
     /// and dispatches them through the existing `spawn_toggle` worker. The
     /// `manual_override` set is seeded so the on-demand evaluator does not
     /// immediately fight a Shortcuts-triggered state change.
-    fn drain_url_events(&mut self, ctx: &egui::Context) {
+    fn drain_url_events(&mut self, _ctx: &egui::Context) {
         use super::url_scheme::UrlAction;
         while let Ok(action) = self.url_rx.try_recv() {
             let name = match &action {
@@ -385,28 +387,72 @@ impl App {
                 );
                 continue;
             };
-            let is_active = self.mgr.is_active(&cfg.name)
-;
+            let verb = match &action {
+                UrlAction::Connect(_) => "connect",
+                UrlAction::Disconnect(_) => "disconnect",
+                UrlAction::Toggle(_) => "toggle",
+            };
+            log::info!("splitwg: url_scheme: queuing confirmation for {verb} {name}");
+            self.pending_url_action = Some((action, cfg));
+        }
+    }
+
+    fn show_url_confirmation(&mut self, ctx: &egui::Context) {
+        let Some((ref action, ref cfg)) = self.pending_url_action else {
+            return;
+        };
+        use super::url_scheme::UrlAction;
+        let verb = match action {
+            UrlAction::Connect(_) => i18n::t("gui.url_confirm.connect"),
+            UrlAction::Disconnect(_) => i18n::t("gui.url_confirm.disconnect"),
+            UrlAction::Toggle(_) => i18n::t("gui.url_confirm.toggle"),
+        };
+        let name = cfg.name.clone();
+        let mut accepted = false;
+        let mut dismissed = false;
+
+        egui::Window::new(i18n::t("gui.url_confirm.title"))
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                ui.label(i18n::t_with(
+                    "gui.url_confirm.message",
+                    &[("action", &verb), ("name", &name)],
+                ));
+                ui.add_space(12.0);
+                ui.horizontal(|ui| {
+                    if ui.button(i18n::t("gui.url_confirm.allow")).clicked() {
+                        accepted = true;
+                    }
+                    if ui.button(i18n::t("gui.url_confirm.deny")).clicked() {
+                        dismissed = true;
+                    }
+                });
+            });
+
+        if accepted {
+            let (action, cfg) = self.pending_url_action.take().unwrap();
+            let is_active = self.mgr.is_active(&cfg.name);
             let should_spawn = match &action {
                 UrlAction::Connect(_) => !is_active,
                 UrlAction::Disconnect(_) => is_active,
                 UrlAction::Toggle(_) => true,
             };
-            if !should_spawn {
-                log::info!(
-                    "splitwg: url_scheme: {name} already in target state; ignoring"
+            if should_spawn {
+                self.in_progress.insert(cfg.name.clone());
+                self.manual_override.insert(cfg.name.clone());
+                tasks::spawn_toggle(
+                    self.task_tx.clone(),
+                    ctx.clone(),
+                    self.mgr.clone(),
+                    cfg,
+                    is_active,
                 );
-                continue;
             }
-            self.in_progress.insert(name.clone());
-            self.manual_override.insert(name.clone());
-            tasks::spawn_toggle(
-                self.task_tx.clone(),
-                ctx.clone(),
-                self.mgr.clone(),
-                cfg,
-                is_active,
-            );
+        } else if dismissed {
+            log::info!("splitwg: url_scheme: user denied URL action");
+            self.pending_url_action = None;
         }
     }
 
@@ -1113,6 +1159,7 @@ impl eframe::App for App {
         self.maybe_update_geodb(ctx);
         self.handle_dropped_files(ctx);
         self.drain_url_events(ctx);
+        self.show_url_confirmation(ctx);
         self.drain_task_results();
         self.drain_ipc_events();
         self.drain_network_changes(ctx);
