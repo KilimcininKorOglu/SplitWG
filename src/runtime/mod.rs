@@ -36,12 +36,20 @@ const HOOK_TIMEOUT: Duration = Duration::from_secs(30);
 #[cfg(target_os = "macos")]
 #[path = "dns_darwin.rs"]
 pub mod dns;
+#[cfg(target_os = "windows")]
+#[path = "dns_windows.rs"]
+pub mod dns;
 
 #[cfg(target_os = "macos")]
 pub mod pf;
+#[cfg(target_os = "windows")]
+pub mod wfp;
 
 #[cfg(target_os = "macos")]
 #[path = "routing_darwin.rs"]
+pub mod routing;
+#[cfg(target_os = "windows")]
+#[path = "routing_windows.rs"]
 pub mod routing;
 
 pub mod timers;
