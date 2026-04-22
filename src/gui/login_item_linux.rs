@@ -29,15 +29,21 @@ pub fn register() -> Result<(), String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("create autostart dir: {e}"))?;
     }
+    let exec = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.to_str().map(|s| s.to_string()))
+        .unwrap_or_else(|| "/usr/bin/splitwg".to_string());
     std::fs::write(
         &path,
-        "[Desktop Entry]\n\
-         Type=Application\n\
-         Name=SplitWG\n\
-         Exec=/usr/bin/splitwg --minimized\n\
-         Icon=network-vpn\n\
-         X-GNOME-Autostart-enabled=true\n\
-         StartupNotify=false\n",
+        format!(
+            "[Desktop Entry]\n\
+             Type=Application\n\
+             Name=SplitWG\n\
+             Exec={exec} --minimized\n\
+             Icon=network-vpn\n\
+             X-GNOME-Autostart-enabled=true\n\
+             StartupNotify=false\n"
+        ),
     )
     .map_err(|e| format!("write desktop file: {e}"))?;
     Ok(())
