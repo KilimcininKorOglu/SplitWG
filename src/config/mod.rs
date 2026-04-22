@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::ipc::TransportConfig;
+
 /// Routing rules for a WireGuard tunnel — persisted as `<name>.rules.json`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Rules {
@@ -30,6 +32,12 @@ pub struct Rules {
     /// which preserves the legacy semantics of pre-Phase-6 rule files.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_demand: Option<OnDemandRule>,
+    #[serde(default, skip_serializing_if = "is_direct_transport")]
+    pub transport: TransportConfig,
+}
+
+fn is_direct_transport(t: &TransportConfig) -> bool {
+    matches!(t, TransportConfig::Direct)
 }
 
 /// Auto-connect rules for a single tunnel. Evaluated by
@@ -92,6 +100,7 @@ impl Default for Rules {
             entries: Vec::new(),
             hooks_enabled: false,
             on_demand: None,
+            transport: TransportConfig::Direct,
         }
     }
 }
@@ -271,7 +280,7 @@ pub fn ensure_rules_file(name: &str) -> Result<PathBuf, ConfigError> {
         );
         let r = Rules::default();
         let data = serde_json::to_vec_pretty(&r)?;
-        write_with_mode(&path, &data, 0o644)?;
+        write_with_mode(&path, &data, 0o600)?;
     } else {
         log::info!("splitwg: config: rules file already exists for {:?}", name);
     }
@@ -399,7 +408,7 @@ pub fn save_rules(name: &str, rules: &Rules) -> Result<(), ConfigError> {
         name: name.to_string(),
         source: io::Error::other(e),
     })?;
-    write_with_mode(&path, &data, 0o644).map_err(|e| ConfigError::SaveRules {
+    write_with_mode(&path, &data, 0o600).map_err(|e| ConfigError::SaveRules {
         name: name.to_string(),
         source: e,
     })?;
@@ -498,6 +507,7 @@ mod tests {
             entries: vec!["192.168.1.0/24".into(), "10.0.0.1".into()],
             hooks_enabled: false,
             on_demand: None,
+            transport: TransportConfig::Direct,
         };
         save_rules("myvpn", &rules).unwrap();
 
@@ -518,6 +528,7 @@ mod tests {
                 entries: vec!["1.2.3.4".into()],
                 hooks_enabled: false,
                 on_demand: None,
+                transport: TransportConfig::Direct,
             },
         )
         .unwrap();
@@ -529,6 +540,7 @@ mod tests {
                 entries: vec!["8.8.8.8".into(), "8.8.4.4".into()],
                 hooks_enabled: false,
                 on_demand: None,
+                transport: TransportConfig::Direct,
             },
         )
         .unwrap();
@@ -553,6 +565,7 @@ mod tests {
             ],
             hooks_enabled: false,
             on_demand: None,
+            transport: TransportConfig::Direct,
         };
         save_rules("roundtrip", &want).unwrap();
 
@@ -579,6 +592,7 @@ mod tests {
                 entries: vec![],
                 hooks_enabled: false,
                 on_demand: None,
+                transport: TransportConfig::Direct,
             },
         );
         assert!(err.is_err(), "expected error when config dir is a file");

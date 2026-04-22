@@ -215,6 +215,7 @@ impl Manager {
             pre_down,
             post_down,
             kill_switch: config::load_settings().kill_switch,
+            transport: cfg.rules.transport.clone(),
         };
 
         log::info!("splitwg: manager: creating IPC transport");

@@ -361,6 +361,7 @@ mod tests {
             entries: vec!["10.0.0.0/24".to_string(), "192.168.1.0/24".to_string()],
             hooks_enabled: false,
             on_demand: None,
+            transport: crate::ipc::TransportConfig::Direct,
         };
         let out = build_include_config(original, &rules);
         assert!(out.contains("AllowedIPs = 10.0.0.0/24, 192.168.1.0/24"));
@@ -378,6 +379,7 @@ mod tests {
             entries: vec!["10.0.0.0/24".to_string()],
             hooks_enabled: false,
             on_demand: None,
+            transport: crate::ipc::TransportConfig::Direct,
         };
         let out = build_include_config(original, &rules);
         assert!(out.contains("AllowedIPs = 10.0.0.0/24"));
@@ -391,6 +393,7 @@ mod tests {
             entries: vec!["172.16.0.0/12".to_string()],
             hooks_enabled: false,
             on_demand: None,
+            transport: crate::ipc::TransportConfig::Direct,
         };
         let out = build_include_config(original, &rules);
         assert_eq!(out.matches("AllowedIPs = 172.16.0.0/12").count(), 2);
@@ -406,6 +409,7 @@ mod tests {
             entries: vec![],
             hooks_enabled: false,
             on_demand: None,
+            transport: crate::ipc::TransportConfig::Direct,
         };
         let out = build_include_config(original, &rules);
         assert_eq!(out, original);

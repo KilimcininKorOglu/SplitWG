@@ -228,7 +228,7 @@ pub fn spawn_rules_apply(
     ctx: egui::Context,
     mgr: Arc<wg::Manager>,
     name: String,
-    rules: Rules,
+    rules: Box<Rules>,
 ) {
     thread::spawn(move || {
         if let Err(e) = config::save_rules(&name, &rules) {

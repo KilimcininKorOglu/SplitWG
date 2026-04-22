@@ -141,7 +141,7 @@ pub enum RulesEvent {
     /// the tunnel. `Rules` is passed by value to simplify the worker.
     Apply {
         name: String,
-        rules: Rules,
+        rules: Box<Rules>,
     },
 }
 
@@ -570,7 +570,7 @@ pub fn show(ui: &mut egui::Ui, state: &mut RulesTabState, global_hooks_on: bool)
             state.commit_on_demand();
             event = RulesEvent::Apply {
                 name: state.name.clone(),
-                rules: state.current.clone(),
+                rules: Box::new(state.current.clone()),
             };
         }
     });
