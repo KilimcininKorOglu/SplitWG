@@ -39,9 +39,7 @@ pub async fn handle_session(
     let mut ws_to_udp = tokio::spawn({
         let udp = Arc::clone(&udp);
         async move {
-            while let Ok(Some(msg)) =
-                tokio::time::timeout(idle_timeout, ws_rx.next()).await
-            {
+            while let Ok(Some(msg)) = tokio::time::timeout(idle_timeout, ws_rx.next()).await {
                 match msg {
                     Ok(Message::Binary(data)) => {
                         if data.len() > max_frame_bytes {
