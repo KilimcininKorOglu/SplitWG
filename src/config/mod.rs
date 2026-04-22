@@ -280,7 +280,7 @@ pub fn ensure_rules_file(name: &str) -> Result<PathBuf, ConfigError> {
         );
         let r = Rules::default();
         let data = serde_json::to_vec_pretty(&r)?;
-        write_with_mode(&path, &data, 0o644)?;
+        write_with_mode(&path, &data, 0o600)?;
     } else {
         log::info!("splitwg: config: rules file already exists for {:?}", name);
     }
@@ -408,7 +408,7 @@ pub fn save_rules(name: &str, rules: &Rules) -> Result<(), ConfigError> {
         name: name.to_string(),
         source: io::Error::other(e),
     })?;
-    write_with_mode(&path, &data, 0o644).map_err(|e| ConfigError::SaveRules {
+    write_with_mode(&path, &data, 0o600).map_err(|e| ConfigError::SaveRules {
         name: name.to_string(),
         source: e,
     })?;

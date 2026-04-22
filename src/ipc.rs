@@ -39,7 +39,7 @@ pub enum TunnelMode {
     Exclude,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum TransportConfig {
     #[default]
@@ -57,6 +57,30 @@ pub enum TransportConfig {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         auth_token: Option<String>,
     },
+}
+
+impl std::fmt::Debug for TransportConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Direct => write!(f, "Direct"),
+            Self::WebSocket {
+                relay_url,
+                relay_urls,
+                sni_override,
+                path,
+                headers,
+                auth_token,
+            } => f
+                .debug_struct("WebSocket")
+                .field("relay_url", relay_url)
+                .field("relay_urls", relay_urls)
+                .field("sni_override", sni_override)
+                .field("path", path)
+                .field("headers", headers)
+                .field("auth_token", &auth_token.as_ref().map(|_| "[REDACTED]"))
+                .finish(),
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
