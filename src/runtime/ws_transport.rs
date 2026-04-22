@@ -56,10 +56,8 @@ impl Drop for WsTransport {
 type WsSink = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 type WsStream = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 
-fn apply_padding(payload: &[u8], config: &Option<PaddingConfig>) -> Vec<u8> {
-    let Some(cfg) = config else {
-        return payload.to_vec();
-    };
+fn apply_padding(payload: &[u8], cfg: &PaddingConfig) -> Vec<u8> {
+    let len = payload.len().min(u16::MAX as usize);
     let min = cfg.min_bytes as usize;
     let max = cfg.max_bytes as usize;
     let pad_len = if max > min {
@@ -67,14 +65,14 @@ fn apply_padding(payload: &[u8], config: &Option<PaddingConfig>) -> Vec<u8> {
     } else {
         min
     };
-    let total = 2 + payload.len() + pad_len;
+    let total = 2 + len + pad_len;
     let mut frame = Vec::with_capacity(total);
-    frame.extend_from_slice(&(payload.len() as u16).to_be_bytes());
-    frame.extend_from_slice(payload);
+    frame.extend_from_slice(&(len as u16).to_be_bytes());
+    frame.extend_from_slice(&payload[..len]);
     if pad_len > 0 {
-        let mut pad = vec![0u8; pad_len];
-        rand::rng().fill(&mut pad[..]);
-        frame.extend_from_slice(&pad);
+        let start = frame.len();
+        frame.resize(total, 0);
+        rand::rng().fill(&mut frame[start..]);
     }
     frame
 }
@@ -84,7 +82,7 @@ fn strip_padding(frame: &[u8]) -> Vec<u8> {
         return frame.to_vec();
     }
     let payload_len = u16::from_be_bytes([frame[0], frame[1]]) as usize;
-    if payload_len == 0 || 2 + payload_len > frame.len() {
+    if 2 + payload_len > frame.len() {
         return frame.to_vec();
     }
     frame[2..2 + payload_len].to_vec()
@@ -253,7 +251,10 @@ impl WsTransport {
                     }
                 }
                 Some(data) = outgoing_rx.recv() => {
-                    let frame = apply_padding(&data, &padding);
+                    let frame = match &padding {
+                        Some(cfg) => apply_padding(&data, cfg),
+                        None => data,
+                    };
                     if sink.send(Message::Binary(frame)).await.is_err() {
                         break;
                     }

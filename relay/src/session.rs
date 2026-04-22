@@ -14,13 +14,14 @@ fn strip_padding(frame: &[u8]) -> Vec<u8> {
         return frame.to_vec();
     }
     let payload_len = u16::from_be_bytes([frame[0], frame[1]]) as usize;
-    if payload_len == 0 || 2 + payload_len > frame.len() {
+    if 2 + payload_len > frame.len() {
         return frame.to_vec();
     }
     frame[2..2 + payload_len].to_vec()
 }
 
 fn apply_padding(payload: &[u8], config: &PaddingConfig) -> Vec<u8> {
+    let len = payload.len().min(u16::MAX as usize);
     let min = config.min_bytes as usize;
     let max = config.max_bytes as usize;
     let pad_len = if max > min {
@@ -28,14 +29,14 @@ fn apply_padding(payload: &[u8], config: &PaddingConfig) -> Vec<u8> {
     } else {
         min
     };
-    let total = 2 + payload.len() + pad_len;
+    let total = 2 + len + pad_len;
     let mut frame = Vec::with_capacity(total);
-    frame.extend_from_slice(&(payload.len() as u16).to_be_bytes());
-    frame.extend_from_slice(payload);
+    frame.extend_from_slice(&(len as u16).to_be_bytes());
+    frame.extend_from_slice(&payload[..len]);
     if pad_len > 0 {
-        let mut pad = vec![0u8; pad_len];
-        rand::rng().fill(&mut pad[..]);
-        frame.extend_from_slice(&pad);
+        let start = frame.len();
+        frame.resize(total, 0);
+        rand::rng().fill(&mut frame[start..]);
     }
     frame
 }
