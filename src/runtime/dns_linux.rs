@@ -31,7 +31,7 @@ impl Dns {
             return Ok(Self::empty());
         }
         let backend = detect_backend();
-        let mut dns = Self {
+        let dns = Self {
             iface: Some(iface.to_string()),
             backend,
         };
