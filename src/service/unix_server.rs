@@ -22,6 +22,9 @@ pub async fn serve(tunnels: TunnelMap, mut shutdown: watch::Receiver<bool>) {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use tokio::net::UnixListener;
 
+    if let Some(parent) = std::path::Path::new(SOCKET_PATH).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
     let _ = std::fs::remove_file(SOCKET_PATH);
     let listener = match UnixListener::bind(SOCKET_PATH) {
         Ok(l) => l,
