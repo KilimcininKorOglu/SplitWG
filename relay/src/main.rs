@@ -1,4 +1,5 @@
 mod auth;
+mod camouflage;
 mod config;
 mod session;
 
@@ -41,11 +42,15 @@ async fn serve(config_path: PathBuf) -> anyhow::Result<()> {
 
     log::info!("splitwg-relay: listening on {listen}, path: {path}");
 
+    let fallback = camouflage::fallback_service(&config.camouflage);
+    let camo_config = config.camouflage.clone();
     let state = Arc::new(AppState { config });
 
     let app = Router::new()
         .route(&path, get(ws_handler))
-        .with_state(state);
+        .with_state(state)
+        .fallback_service(fallback);
+    let app = camouflage::apply_headers(app, &camo_config);
 
     let listener = TcpListener::bind(&listen).await?;
     log::info!("splitwg-relay: server started");

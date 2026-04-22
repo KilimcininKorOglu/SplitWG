@@ -102,7 +102,7 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct CamouflageConfig {
     #[serde(default)]
     pub enabled: bool,
