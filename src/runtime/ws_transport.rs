@@ -111,35 +111,35 @@ impl WsTransport {
             Self::run_session(initial_sink, initial_source, outgoing_rx, &incoming_tx).await;
 
         let mut backoff = INITIAL_BACKOFF;
-        let mut failures: u32 = 0;
+        let mut failed_cycles: u32 = 0;
 
         'reconnect: loop {
             for url in &config.urls {
-                eprintln!("splitwg-helper: ws: reconnecting in {backoff:?}...");
-                tokio::time::sleep(backoff).await;
-
                 match Self::inner_connect(url, &config).await {
                     Ok((sink, source)) => {
                         backoff = INITIAL_BACKOFF;
-                        failures = 0;
+                        failed_cycles = 0;
                         outgoing_rx =
                             Self::run_session(sink, source, outgoing_rx, &incoming_tx).await;
+                        eprintln!("splitwg-helper: ws: connection lost, reconnecting...");
                         continue 'reconnect;
                     }
                     Err(e) => {
-                        failures += 1;
-                        eprintln!(
-                            "splitwg-helper: ws: connect to {url} failed ({failures}/{MAX_FAILURES}): {e}"
-                        );
-                        if failures >= MAX_FAILURES {
-                            eprintln!(
-                                "splitwg-helper: ws: fatal — {failures} consecutive failures, giving up"
-                            );
-                            return;
-                        }
+                        eprintln!("splitwg-helper: ws: connect to {url} failed: {e}");
                     }
                 }
             }
+
+            failed_cycles += 1;
+            if failed_cycles >= MAX_FAILURES {
+                eprintln!(
+                    "splitwg-helper: ws: fatal — {failed_cycles} consecutive failed cycles, giving up"
+                );
+                return;
+            }
+
+            eprintln!("splitwg-helper: ws: all URLs failed, backing off for {backoff:?}...");
+            tokio::time::sleep(backoff).await;
             backoff = (backoff * 2).min(MAX_BACKOFF);
         }
     }
