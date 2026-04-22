@@ -16,12 +16,18 @@ pub mod login_item;
 #[cfg(target_os = "windows")]
 #[path = "login_item_windows.rs"]
 pub mod login_item;
+#[cfg(target_os = "linux")]
+#[path = "login_item_linux.rs"]
+pub mod login_item;
 pub mod modals;
 #[cfg(target_os = "macos")]
 #[path = "network_monitor_darwin.rs"]
 pub mod network_monitor;
 #[cfg(target_os = "windows")]
 #[path = "network_monitor_windows.rs"]
+pub mod network_monitor;
+#[cfg(target_os = "linux")]
+#[path = "network_monitor_linux.rs"]
 pub mod network_monitor;
 pub mod package;
 pub mod qr;
@@ -32,6 +38,8 @@ pub mod tray_host;
 pub mod tunnels_panel;
 pub mod update;
 pub mod url_scheme;
+#[cfg(target_os = "linux")]
+pub mod url_scheme_linux;
 #[cfg(target_os = "windows")]
 pub mod url_scheme_windows;
 pub mod validation;

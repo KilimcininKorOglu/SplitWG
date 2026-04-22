@@ -22,3 +22,13 @@ pub use touchid_darwin::authenticate;
 mod hello_windows;
 #[cfg(target_os = "windows")]
 pub use hello_windows::authenticate;
+
+#[cfg(target_os = "linux")]
+mod setup_linux;
+#[cfg(target_os = "linux")]
+pub use setup_linux::{is_setup_done, run_first_time_setup, SUDOERS_PATH};
+
+#[cfg(target_os = "linux")]
+mod polkit_linux;
+#[cfg(target_os = "linux")]
+pub use polkit_linux::authenticate;

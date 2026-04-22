@@ -1,16 +1,16 @@
-//! splitwg-svc — Windows Service that manages all WireGuard tunnels.
+//! splitwg-svc — service binary that manages all WireGuard tunnels.
 //!
-//! Listens on a named pipe (`\\.\pipe\splitwg`) for JSON commands from the
-//! GUI process. On macOS this binary exits immediately — the macOS
-//! architecture uses per-tunnel sudo helpers instead.
+//! Windows: Windows Service listening on named pipe.
+//! Linux: systemd service listening on Unix domain socket.
+//! macOS: not used (per-tunnel sudo helpers instead).
 
 fn main() {
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     splitwg::service::run();
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
-        eprintln!("splitwg-svc is only available on Windows");
+        eprintln!("splitwg-svc is only available on Windows and Linux");
         std::process::exit(1);
     }
 }

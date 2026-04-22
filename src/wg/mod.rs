@@ -14,6 +14,16 @@ mod admin_darwin;
 #[cfg(target_os = "macos")]
 pub use admin_darwin::{run_as_admin, run_as_admin_osascript, with_path, BREW_PATH};
 
+#[cfg(target_os = "linux")]
+mod wgbin_linux;
+#[cfg(target_os = "linux")]
+pub use wgbin_linux::{WG_BIN, WG_QUICK_BIN};
+
+#[cfg(target_os = "linux")]
+mod admin_linux;
+#[cfg(target_os = "linux")]
+pub use admin_linux::{run_as_admin, run_as_admin_osascript, with_path, BREW_PATH};
+
 pub mod conf;
 pub mod manager;
 pub mod on_demand;

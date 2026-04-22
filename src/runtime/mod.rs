@@ -39,7 +39,12 @@ pub mod dns;
 #[cfg(target_os = "windows")]
 #[path = "dns_windows.rs"]
 pub mod dns;
+#[cfg(target_os = "linux")]
+#[path = "dns_linux.rs"]
+pub mod dns;
 
+#[cfg(target_os = "linux")]
+pub mod nft;
 #[cfg(target_os = "macos")]
 pub mod pf;
 #[cfg(target_os = "windows")]
@@ -50,6 +55,9 @@ pub mod wfp;
 pub mod routing;
 #[cfg(target_os = "windows")]
 #[path = "routing_windows.rs"]
+pub mod routing;
+#[cfg(target_os = "linux")]
+#[path = "routing_linux.rs"]
 pub mod routing;
 
 pub mod timers;
@@ -84,6 +92,9 @@ pub struct Tunnel {
     #[cfg(target_os = "windows")]
     #[allow(dead_code)]
     wfp: Option<wfp::WfpAnchor>,
+    #[cfg(target_os = "linux")]
+    #[allow(dead_code)]
+    nft: Option<nft::NftAnchor>,
     // `dns` and `routes` only exist for their `Drop` side-effects; the
     // allow suppresses the dead-field lint.
     #[allow(dead_code)]
@@ -259,6 +270,19 @@ impl Tunnel {
         } else {
             None
         };
+        #[cfg(target_os = "linux")]
+        let nft = if params.kill_switch {
+            eprintln!("splitwg-svc: bringup: loading kill-switch nftables rules for {iface}");
+            match nft::NftAnchor::load(&iface) {
+                Ok(a) => Some(a),
+                Err(e) => {
+                    eprintln!("splitwg-svc: bringup: nftables load failed (non-fatal): {e:#}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
 
         // PostUp hooks — fired after the tunnel is ready. Failure is log-only
         // so a broken hook cannot poison a live tunnel that is already up.
@@ -297,6 +321,8 @@ impl Tunnel {
             mtu: params.mtu,
             #[cfg(target_os = "macos")]
             pf,
+            #[cfg(target_os = "linux")]
+            nft,
             #[cfg(target_os = "windows")]
             wfp,
             dns,

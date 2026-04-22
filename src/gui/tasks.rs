@@ -469,6 +469,10 @@ pub fn spawn_ping(
         let output = Command::new("ping")
             .args(["-n", "1", "-w", "1000", &host])
             .output();
+        #[cfg(target_os = "linux")]
+        let output = Command::new("ping")
+            .args(["-c", "1", "-W", "1", &host])
+            .output();
         let result = output.ok().and_then(|o| {
             if !o.status.success() {
                 return None;

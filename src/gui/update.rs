@@ -325,6 +325,17 @@ pub fn download_and_verify(
     })
 }
 
+#[cfg(target_os = "linux")]
+pub fn download_and_verify(
+    _dmg_url: &str,
+    _minisig_url: &str,
+    _expected_digest: Option<&str>,
+    _version: Version,
+    _progress: impl Fn(u64, u64),
+) -> Result<DownloadedUpdate, UpdateError> {
+    Err(UpdateError::Other("Linux updates not yet supported".into()))
+}
+
 /// Streams `url` to `dest`, reporting progress every 256 KiB, and returns
 /// the hex-encoded SHA-256 of the written bytes.
 fn download_with_progress(
@@ -661,6 +672,15 @@ pub fn install_and_relaunch(
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
+pub fn install_and_relaunch(
+    _new_app: &Path,
+    _current_app: &Path,
+    _mount_point: &Path,
+) -> Result<(), UpdateError> {
+    Err(UpdateError::Other("Linux install not yet supported".into()))
+}
+
 fn shell_quote(path: &Path) -> String {
     let s = path.to_string_lossy();
     format!("'{}'", s.replace('\'', r"'\''"))
@@ -985,36 +1005,35 @@ mod tests {
 
     #[cfg(unix)]
     fn set_mtime(path: &Path, epoch: u64) -> std::io::Result<()> {
-        use std::os::unix::fs::OpenOptionsExt;
-        // On macOS, `touch -t` is the cheapest portable backdate; call
-        // it out of band rather than pulling in filetime crate.
-        let _ = std::fs::OpenOptions::new()
-            .write(true)
-            .custom_flags(0)
-            .open(path);
-        let stamp = format!(
-            "{}{:02}{:02}{:02}{:02}",
-            // naive UTC breakdown via `date -r`
-            "",
-            0,
-            0,
-            0,
-            0
-        );
-        let _ = stamp;
-        let status = std::process::Command::new("/usr/bin/touch")
-            .arg("-t")
-            .arg(
-                std::process::Command::new("/bin/date")
-                    .args(["-r", &epoch.to_string(), "+%Y%m%d%H%M.%S"])
-                    .output()
-                    .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-                    .unwrap_or_default(),
-            )
-            .arg(path)
-            .status()?;
-        if !status.success() {
-            return Err(std::io::Error::other("touch -t failed"));
+        #[cfg(target_os = "macos")]
+        {
+            let stamp = std::process::Command::new("/bin/date")
+                .args(["-r", &epoch.to_string(), "+%Y%m%d%H%M.%S"])
+                .output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                .unwrap_or_default();
+            let status = std::process::Command::new("/usr/bin/touch")
+                .args(["-t", &stamp])
+                .arg(path)
+                .status()?;
+            if !status.success() {
+                return Err(std::io::Error::other("touch -t failed"));
+            }
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let stamp = std::process::Command::new("date")
+                .args(["-d", &format!("@{epoch}"), "+%Y%m%d%H%M.%S"])
+                .output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                .unwrap_or_default();
+            let status = std::process::Command::new("touch")
+                .args(["-t", &stamp])
+                .arg(path)
+                .status()?;
+            if !status.success() {
+                return Err(std::io::Error::other("touch -t failed"));
+            }
         }
         Ok(())
     }

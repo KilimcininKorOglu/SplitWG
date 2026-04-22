@@ -465,6 +465,40 @@ impl IpcTransport {
     fn wait_shutdown(&mut self, _timeout: Duration, _name: &str) {}
 }
 
+#[cfg(target_os = "linux")]
+struct IpcTransport {
+    stream: std::os::unix::net::UnixStream,
+    reader: BufReader<std::os::unix::net::UnixStream>,
+}
+
+#[cfg(target_os = "linux")]
+impl IpcTransport {
+    fn create(_params: &UpParams) -> Result<Self, WgError> {
+        use std::os::unix::net::UnixStream;
+        log::info!("splitwg: transport: connecting to service socket");
+        let stream = UnixStream::connect("/run/splitwg/splitwg.sock")
+            .map_err(|e| WgError::Msg(format!("connect to service socket: {e}")))?;
+        let reader = BufReader::new(
+            stream
+                .try_clone()
+                .map_err(|e| WgError::Msg(format!("clone socket: {e}")))?,
+        );
+        log::info!("splitwg: transport: connected to service socket");
+        Ok(Self { stream, reader })
+    }
+
+    fn send_raw(&mut self, json: &str) -> Result<(), WgError> {
+        writeln!(self.stream, "{json}")
+            .map_err(|e| WgError::Msg(format!("write to service socket: {e}")))?;
+        let _ = self.stream.flush();
+        Ok(())
+    }
+
+    fn kill(&mut self) {}
+
+    fn wait_shutdown(&mut self, _timeout: Duration, _name: &str) {}
+}
+
 fn read_ready_from_transport(
     transport: &mut IpcTransport,
     timeout: Duration,
@@ -544,6 +578,44 @@ fn read_ready_from_transport(
                 Ok(IpcEvent::Ready { iface }) => {
                     let name = tunnel_name.clone();
                     let mut reader = BufReader::new(transport.pipe.try_clone().unwrap());
+                    thread::spawn(move || {
+                        let mut buf = String::new();
+                        while reader.read_line(&mut buf).unwrap_or(0) > 0 {
+                            if let Ok(ev) = serde_json::from_str::<IpcEvent>(buf.trim()) {
+                                let _ = event_fwd.send((name.clone(), ev));
+                            }
+                            buf.clear();
+                        }
+                    });
+                    return Ok(iface);
+                }
+                Ok(IpcEvent::Error { message }) => return Err(message),
+                _ => continue,
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err("ready event timed out".into());
+            }
+            let mut line = String::new();
+            transport
+                .reader
+                .read_line(&mut line)
+                .map_err(|e| format!("read from service socket: {e}"))?;
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            match serde_json::from_str::<IpcEvent>(line) {
+                Ok(IpcEvent::Ready { iface }) => {
+                    let name = tunnel_name.clone();
+                    let mut reader = BufReader::new(transport.stream.try_clone().unwrap());
                     thread::spawn(move || {
                         let mut buf = String::new();
                         while reader.read_line(&mut buf).unwrap_or(0) > 0 {
