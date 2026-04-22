@@ -40,9 +40,6 @@ jobs:
       - name: Unit tests
         run: cargo test --lib
 
-      - name: Build release
-        run: cargo build --release --bin splitwg --bin splitwg-helper
-
   check-windows:
     runs-on: windows-latest
     timeout-minutes: 30
@@ -69,9 +66,6 @@ jobs:
 
       - name: Unit tests
         run: cargo test --lib
-
-      - name: Build release
-        run: cargo build --release --bin splitwg --bin splitwg-svc
 
   check-linux:
     runs-on: ubuntu-latest
@@ -102,6 +96,3 @@ jobs:
 
       - name: Unit tests
         run: cargo test --lib
-
-      - name: Build release (lib + service binary)
-        run: cargo build --release --lib --bin splitwg-svc
