@@ -61,6 +61,9 @@ pub mod routing;
 pub mod routing;
 
 pub mod timers;
+pub mod transport;
+
+pub use transport::WgTransport;
 
 const MAX_PACKET: usize = 65_536;
 
@@ -79,7 +82,7 @@ fn tunnel_name_to_guid(name: &str) -> u128 {
 pub struct Tunnel {
     pub iface: String,
     device: Arc<tun2::AsyncDevice>,
-    udp: Arc<UdpSocket>,
+    transport: Arc<dyn WgTransport>,
     tunn: Arc<Mutex<Tunn>>,
     mtu: u16,
     /// Kill-switch pf anchor. Declared before `dns` and `routes` so the
@@ -316,7 +319,7 @@ impl Tunnel {
         Ok(Self {
             iface,
             device: Arc::new(device),
-            udp: Arc::new(udp),
+            transport: Arc::new(transport::UdpTransport::new(udp)),
             tunn: Arc::new(Mutex::new(tunn)),
             mtu: params.mtu,
             #[cfg(target_os = "macos")]
@@ -402,7 +405,7 @@ impl Tunnel {
 
         let tun_to_udp = {
             let device = self.device.clone();
-            let udp = self.udp.clone();
+            let transport = self.transport.clone();
             let tunn = self.tunn.clone();
             tokio::spawn(async move {
                 let mut buf = vec![0u8; mtu + 64];
@@ -423,8 +426,8 @@ impl Tunnel {
                         })
                     };
                     if let Some(b) = to_send {
-                        if let Err(e) = udp.send(&b).await {
-                            eprintln!("splitwg-helper: udp send (tun→udp): {e}");
+                        if let Err(e) = transport.send(&b).await {
+                            eprintln!("splitwg-helper: transport send (tun→net): {e}");
                         }
                     }
                 }
@@ -433,15 +436,15 @@ impl Tunnel {
 
         let udp_to_tun = {
             let device = self.device.clone();
-            let udp = self.udp.clone();
+            let transport = self.transport.clone();
             let tunn = self.tunn.clone();
             tokio::spawn(async move {
                 let mut buf = vec![0u8; MAX_PACKET];
                 loop {
-                    let n = match udp.recv(&mut buf).await {
+                    let n = match transport.recv(&mut buf).await {
                         Ok(n) => n,
                         Err(e) => {
-                            eprintln!("splitwg-helper: udp recv: {e}");
+                            eprintln!("splitwg-helper: transport recv: {e}");
                             return;
                         }
                     };
@@ -469,8 +472,8 @@ impl Tunnel {
                         }
                     };
                     if let Some(b) = net_reply {
-                        if let Err(e) = udp.send(&b).await {
-                            eprintln!("splitwg-helper: udp send (udp→udp): {e}");
+                        if let Err(e) = transport.send(&b).await {
+                            eprintln!("splitwg-helper: transport send (net→net): {e}");
                         }
                     }
                     if let Some(b) = tun_data {
@@ -485,7 +488,7 @@ impl Tunnel {
             })
         };
 
-        let timer = timers::spawn_timer_loop(self.tunn.clone(), self.udp.clone());
+        let timer = timers::spawn_timer_loop(self.tunn.clone(), self.transport.clone());
 
         let _ = shutdown_rx.changed().await;
         tun_to_udp.abort();

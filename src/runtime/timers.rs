@@ -6,14 +6,15 @@ use std::time::Duration;
 
 use gotatun::noise::Tunn;
 use gotatun::packet::Packet;
-use tokio::net::UdpSocket;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
 
+use super::transport::WgTransport;
+
 const TIMER_TICK: Duration = Duration::from_millis(250);
 
-pub fn spawn_timer_loop(tunn: Arc<Mutex<Tunn>>, udp: Arc<UdpSocket>) -> JoinHandle<()> {
+pub fn spawn_timer_loop(tunn: Arc<Mutex<Tunn>>, transport: Arc<dyn WgTransport>) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut ticker = interval(TIMER_TICK);
         loop {
@@ -33,8 +34,8 @@ pub fn spawn_timer_loop(tunn: Arc<Mutex<Tunn>>, udp: Arc<UdpSocket>) -> JoinHand
                 }
             };
             if let Some(bytes) = to_send {
-                if let Err(e) = udp.send(&bytes).await {
-                    eprintln!("splitwg-helper: udp send (timer): {e}");
+                if let Err(e) = transport.send(&bytes).await {
+                    eprintln!("splitwg-helper: transport send (timer): {e}");
                 }
             }
         }
