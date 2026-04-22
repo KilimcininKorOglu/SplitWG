@@ -62,6 +62,7 @@ pub mod routing;
 
 pub mod timers;
 pub mod transport;
+pub mod ws_transport;
 
 pub use transport::WgTransport;
 
