@@ -215,6 +215,25 @@ pub fn get_default_gateway() -> Result<String, String> {
         return Ok(gw);
     }
 
+    #[cfg(target_os = "linux")]
+    {
+        let output = Command::new("ip")
+            .args(["route", "show", "default"])
+            .output()
+            .map_err(|e| format!("get default gateway: {}", e))?;
+        let text = String::from_utf8_lossy(&output.stdout);
+        let gw = text
+            .split_whitespace()
+            .skip_while(|w| *w != "via")
+            .nth(1)
+            .unwrap_or("")
+            .to_string();
+        if gw.is_empty() {
+            return Err("could not determine default gateway".to_string());
+        }
+        return Ok(gw);
+    }
+
     #[allow(unreachable_code)]
     Err("unsupported platform".to_string())
 }

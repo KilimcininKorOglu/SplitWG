@@ -263,6 +263,17 @@ fn format_epoch_or_key(ts: Option<u64>, never_key: &str) -> String {
             }
         }
     }
+    #[cfg(target_os = "linux")]
+    {
+        let output = std::process::Command::new("date")
+            .args(["-d", &format!("@{secs}"), "+%Y-%m-%d %H:%M"])
+            .output();
+        if let Ok(o) = output {
+            if o.status.success() {
+                return String::from_utf8_lossy(&o.stdout).trim().to_string();
+            }
+        }
+    }
     secs.to_string()
 }
 
