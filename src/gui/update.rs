@@ -325,6 +325,17 @@ pub fn download_and_verify(
     })
 }
 
+#[cfg(target_os = "linux")]
+pub fn download_and_verify(
+    _dmg_url: &str,
+    _minisig_url: &str,
+    _expected_digest: Option<&str>,
+    _version: Version,
+    _progress: impl Fn(u64, u64),
+) -> Result<DownloadedUpdate, UpdateError> {
+    Err(UpdateError::Other("Linux updates not yet supported".into()))
+}
+
 /// Streams `url` to `dest`, reporting progress every 256 KiB, and returns
 /// the hex-encoded SHA-256 of the written bytes.
 fn download_with_progress(
@@ -659,6 +670,15 @@ pub fn install_and_relaunch(
         .spawn()
         .map_err(UpdateError::Io)?;
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+pub fn install_and_relaunch(
+    _new_app: &Path,
+    _current_app: &Path,
+    _mount_point: &Path,
+) -> Result<(), UpdateError> {
+    Err(UpdateError::Other("Linux install not yet supported".into()))
 }
 
 fn shell_quote(path: &Path) -> String {

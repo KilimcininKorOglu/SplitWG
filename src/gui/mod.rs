@@ -38,6 +38,8 @@ pub mod tray_host;
 pub mod tunnels_panel;
 pub mod update;
 pub mod url_scheme;
+#[cfg(target_os = "linux")]
+pub mod url_scheme_linux;
 #[cfg(target_os = "windows")]
 pub mod url_scheme_windows;
 pub mod validation;

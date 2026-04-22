@@ -144,6 +144,11 @@ fn read_clipboard_image_bytes() -> Option<Vec<u8>> {
     None
 }
 
+#[cfg(target_os = "linux")]
+fn read_clipboard_image_bytes() -> Option<Vec<u8>> {
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
