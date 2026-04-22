@@ -1,23 +1,16 @@
-//! splitwg-relay — WebSocket-to-UDP relay for SplitWG obfuscation.
-//!
-//! Accepts WSS connections from SplitWG clients, extracts WireGuard
-//! datagrams from binary frames, and forwards them as UDP to the
-//! configured WireGuard peer endpoint. Serves a decoy website on
-//! normal HTTP requests.
-//!
-//! Usage:
-//!   splitwg-relay --config relay.toml
-//!   splitwg-relay                        # uses ./relay.toml
-
+mod auth;
 mod config;
+mod session;
 
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
-use axum::extract::ws::{Message, WebSocket};
-use axum::extract::{State, WebSocketUpgrade};
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
+use axum::extract::ws::WebSocketUpgrade;
+use axum::extract::State;
+use axum::http::{HeaderMap, StatusCode};
+use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
 use tokio::net::TcpListener;
@@ -28,9 +21,15 @@ struct AppState {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    match parse_command() {
+        Command::HashToken(plaintext) => hash_token(&plaintext),
+        Command::Serve(config_path) => serve(config_path).await,
+    }
+}
+
+async fn serve(config_path: PathBuf) -> anyhow::Result<()> {
     env_logger::init();
 
-    let config_path = parse_args();
     log::info!(
         "splitwg-relay: loading config from {}",
         config_path.display()
@@ -56,34 +55,77 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn ws_handler(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     ws: WebSocketUpgrade,
-    State(_state): State<Arc<AppState>>,
-) -> impl IntoResponse {
-    ws.on_upgrade(handle_socket)
+) -> Result<Response, StatusCode> {
+    auth::validate_token(&headers, &state.config.auth.token_hashes)?;
+
+    let target = parse_target(&headers)?;
+    check_peer(&state.config.peers, target)?;
+
+    let idle_timeout = Duration::from_secs(state.config.limits.idle_timeout_secs);
+    let max_frame_bytes = state.config.limits.max_frame_bytes;
+
+    Ok(ws
+        .on_upgrade(move |socket| {
+            session::handle_session(socket, target, idle_timeout, max_frame_bytes)
+        })
+        .into_response())
 }
 
-async fn handle_socket(mut socket: WebSocket) {
-    log::info!("splitwg-relay: new WebSocket connection");
-    while let Some(Ok(msg)) = socket.recv().await {
-        match msg {
-            Message::Binary(data) => {
-                log::debug!("splitwg-relay: received {} bytes", data.len());
-            }
-            Message::Close(_) => break,
-            _ => {}
-        }
+fn parse_target(headers: &HeaderMap) -> Result<SocketAddr, StatusCode> {
+    headers
+        .get("X-Target")
+        .and_then(|v| v.to_str().ok())
+        .ok_or(StatusCode::BAD_REQUEST)?
+        .parse::<SocketAddr>()
+        .map_err(|_| StatusCode::BAD_REQUEST)
+}
+
+fn check_peer(peers: &config::PeersConfig, target: SocketAddr) -> Result<(), StatusCode> {
+    if peers.allow_any {
+        return Ok(());
     }
-    log::info!("splitwg-relay: connection closed");
+    if peers.allowed.contains(&target) {
+        return Ok(());
+    }
+    Err(StatusCode::FORBIDDEN)
 }
 
-fn parse_args() -> PathBuf {
+fn hash_token(plaintext: &str) -> anyhow::Result<()> {
+    use argon2::{Argon2, PasswordHasher};
+    use password_hash::rand_core::OsRng;
+    use password_hash::SaltString;
+
+    let salt = SaltString::generate(&mut OsRng);
+    let hash = Argon2::default()
+        .hash_password(plaintext.as_bytes(), &salt)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    println!("{hash}");
+    Ok(())
+}
+
+enum Command {
+    HashToken(String),
+    Serve(PathBuf),
+}
+
+fn parse_command() -> Command {
     let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
+    if let Some(arg) = args.next() {
+        if arg == "hash-token" {
+            let plaintext = args.next().unwrap_or_else(|| {
+                eprintln!("usage: splitwg-relay hash-token <plaintext>");
+                std::process::exit(1);
+            });
+            return Command::HashToken(plaintext);
+        }
         if arg == "--config" {
             if let Some(path) = args.next() {
-                return PathBuf::from(path);
+                return Command::Serve(PathBuf::from(path));
             }
         }
     }
-    PathBuf::from("relay.toml")
+    Command::Serve(PathBuf::from("relay.toml"))
 }

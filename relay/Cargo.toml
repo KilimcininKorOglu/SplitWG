@@ -14,6 +14,9 @@ axum       = { version = "0.8", features = ["ws"] }
 tokio      = { version = "1", features = ["full"] }
 serde      = { version = "1", features = ["derive"] }
 toml       = "0.8"
-log        = "0.4"
-env_logger = "0.11"
-anyhow     = "1"
+log          = "0.4"
+env_logger   = "0.11"
+anyhow       = "1"
+argon2        = { version = "0.5", features = ["rand"] }
+password-hash = { version = "0.5", features = ["getrandom"] }
+futures-util = "0.3"
