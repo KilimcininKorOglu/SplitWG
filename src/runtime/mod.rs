@@ -159,13 +159,18 @@ impl Tunnel {
         let (net_transport, is_websocket): (Arc<dyn WgTransport>, bool) = match &params.transport {
             TransportConfig::WebSocket {
                 relay_url,
+                relay_urls,
                 sni_override,
                 auth_token,
                 ..
             } => {
+                let mut urls = vec![relay_url.clone()];
+                if let Some(extras) = relay_urls {
+                    urls.extend(extras.iter().cloned());
+                }
                 eprintln!("splitwg-helper: bringup: WebSocket transport to {relay_url}");
                 let ws = ws_transport::WsTransport::connect(
-                    relay_url,
+                    urls,
                     sni_override.as_deref(),
                     auth_token.as_deref(),
                 )
