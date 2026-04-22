@@ -96,9 +96,7 @@ impl WsTransport {
         while let Some(Ok(msg)) = stream.next().await {
             match msg {
                 Message::Binary(data) => {
-                    if incoming_tx.send(data).await.is_err() {
-                        break;
-                    }
+                    let _ = incoming_tx.send(data).await;
                 }
                 Message::Ping(d) => {
                     let _ = pong_tx.send(d).await;
