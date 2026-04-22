@@ -297,6 +297,7 @@ mod tests {
             entries: Vec::new(),
             hooks_enabled: false,
             on_demand: None,
+            transport: crate::ipc::TransportConfig::Direct,
         };
         assert!(
             validate_wg_config(&cfg, Some(&rules)).contains(&ConfigWarning::IncludeWithCatchAll)
@@ -312,6 +313,7 @@ mod tests {
             entries: Vec::new(),
             hooks_enabled: false,
             on_demand: None,
+            transport: crate::ipc::TransportConfig::Direct,
         };
         assert!(
             !validate_wg_config(&cfg, Some(&rules)).contains(&ConfigWarning::IncludeWithCatchAll)

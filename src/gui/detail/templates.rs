@@ -153,6 +153,7 @@ mod tests {
             entries: vec!["74.125.0.0/16".into()],
             hooks_enabled: false,
             on_demand: None,
+            transport: crate::ipc::TransportConfig::Direct,
         };
         let tmpl = &TEMPLATES.iter().find(|t| t.key == "youtube_cdn").unwrap();
         let added = apply_template(&mut rules, tmpl);
@@ -167,6 +168,7 @@ mod tests {
             entries: Vec::new(),
             hooks_enabled: false,
             on_demand: None,
+            transport: crate::ipc::TransportConfig::Direct,
         };
         let tmpl = &TEMPLATES[0];
         let added = apply_template(&mut rules, tmpl);

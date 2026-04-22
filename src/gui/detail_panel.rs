@@ -29,7 +29,7 @@ pub enum DetailTab {
 pub enum DetailEvent {
     None,
     ToggleTunnel(String),
-    ApplyRules { name: String, rules: Rules },
+    ApplyRules { name: String, rules: Box<Rules> },
     PingPeer { name: String, endpoint: String },
     EditConfig(String),
     Rename(String),

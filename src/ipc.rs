@@ -4,6 +4,7 @@
 //! the `.conf`, and hands the helper an already-distilled payload; the helper
 //! owns the utun device, UDP socket, and routing/DNS side-effects.
 
+use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 
 use serde::{Deserialize, Serialize};
@@ -36,6 +37,26 @@ pub enum TunnelMode {
     Include,
     /// Exclude: tunnel carries default; listed CIDRs are bypassed via gateway.
     Exclude,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum TransportConfig {
+    #[default]
+    Direct,
+    WebSocket {
+        relay_url: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        relay_urls: Option<Vec<String>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sni_override: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        path: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        headers: Option<HashMap<String, String>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        auth_token: Option<String>,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -83,6 +104,9 @@ pub struct UpParams {
     /// that don't emit the field stay unaffected.
     #[serde(default)]
     pub kill_switch: bool,
+
+    #[serde(default)]
+    pub transport: TransportConfig,
 }
 
 impl std::fmt::Debug for UpParams {
@@ -100,6 +124,7 @@ impl std::fmt::Debug for UpParams {
             .field("keepalive", &self.keepalive)
             .field("mode", &self.mode)
             .field("kill_switch", &self.kill_switch)
+            .field("transport", &self.transport)
             .finish()
     }
 }
@@ -156,6 +181,7 @@ mod tests {
             pre_down: vec![],
             post_down: vec![],
             kill_switch: false,
+            transport: TransportConfig::Direct,
         }));
         let json = serde_json::to_string(&cmd).unwrap();
         assert!(json.contains("\"type\":\"up\""));
@@ -243,5 +269,70 @@ mod tests {
     #[test]
     fn decode_key_rejects_short_input() {
         assert!(decode_key("AAAA").is_err());
+    }
+
+    #[test]
+    fn websocket_transport_roundtrip() {
+        let cmd = Command::Up(Box::new(UpParams {
+            tunnel: "obfs".into(),
+            interface_key: KEY.into(),
+            peer_key: PEER.into(),
+            psk: None,
+            endpoint: "1.2.3.4:51820".parse().unwrap(),
+            allowed_ips: vec!["0.0.0.0/0".into()],
+            addresses: vec!["10.0.0.2/32".into()],
+            dns: vec![],
+            mtu: 1420,
+            keepalive: None,
+            mode: TunnelMode::Full,
+            exclude_entries: vec![],
+            gateway: None,
+            pre_up: vec![],
+            post_up: vec![],
+            pre_down: vec![],
+            post_down: vec![],
+            kill_switch: false,
+            transport: TransportConfig::WebSocket {
+                relay_url: "wss://relay.example.com/wg".into(),
+                relay_urls: None,
+                sni_override: Some("cover.example.com".into()),
+                path: None,
+                headers: None,
+                auth_token: Some("secret-token".into()),
+            },
+        }));
+        let json = serde_json::to_string(&cmd).unwrap();
+        assert!(json.contains("\"type\":\"websocket\""));
+        assert!(json.contains("relay.example.com"));
+        let back: Command = serde_json::from_str(&json).unwrap();
+        match back {
+            Command::Up(p) => match &p.transport {
+                TransportConfig::WebSocket {
+                    relay_url,
+                    sni_override,
+                    auth_token,
+                    ..
+                } => {
+                    assert_eq!(relay_url, "wss://relay.example.com/wg");
+                    assert_eq!(sni_override.as_deref(), Some("cover.example.com"));
+                    assert_eq!(auth_token.as_deref(), Some("secret-token"));
+                }
+                _ => panic!("expected WebSocket transport"),
+            },
+            _ => panic!("expected Up command"),
+        }
+    }
+
+    #[test]
+    fn transport_defaults_to_direct_when_absent() {
+        let json = format!(
+            r#"{{"type":"up","tunnel":"t","interface_key":"{}","peer_key":"{}","endpoint":"1.2.3.4:51820","allowed_ips":[],"addresses":[],"dns":[],"mode":"full"}}"#,
+            KEY, PEER
+        );
+        let cmd: Command = serde_json::from_str(&json).unwrap();
+        match cmd {
+            Command::Up(p) => assert_eq!(p.transport, TransportConfig::Direct),
+            _ => panic!("expected Up command"),
+        }
     }
 }
