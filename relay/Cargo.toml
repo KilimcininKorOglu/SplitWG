@@ -21,3 +21,4 @@ argon2        = { version = "0.5", features = ["rand"] }
 password-hash = { version = "0.5", features = ["getrandom"] }
 futures-util = "0.3"
 tower-http   = { version = "0.6", features = ["fs", "set-header"] }
+rand         = "0.9"
