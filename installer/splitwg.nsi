@@ -32,7 +32,7 @@ Section "Install"
   File "..\target\release\wintun.dll"
 
   ; Install and start the service
-  nsExec::ExecToLog 'sc create ${SERVICE_NAME} binPath= "$INSTDIR\splitwg-svc.exe" start= auto DisplayName= "SplitWG Tunnel Service"'
+  nsExec::ExecToLog 'sc create ${SERVICE_NAME} binPath= "$\"$INSTDIR\splitwg-svc.exe$\"" start= auto DisplayName= "SplitWG Tunnel Service"'
   nsExec::ExecToLog 'sc start ${SERVICE_NAME}'
 
   ; Create Start Menu shortcut
