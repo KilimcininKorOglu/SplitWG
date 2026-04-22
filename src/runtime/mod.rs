@@ -26,7 +26,7 @@ use ipnet::IpNet;
 use tokio::net::UdpSocket;
 use tokio::sync::{watch, Mutex};
 
-use crate::ipc::{self, TunnelMode, UpParams};
+use crate::ipc::{self, TransportConfig, TunnelMode, UpParams};
 
 /// Per-hook timeout. `PreUp` is fatal on timeout (bringup aborts); `PostUp`,
 /// `PreDown`, `PostDown` are log-only. Not configurable — kept short enough
@@ -156,24 +156,42 @@ impl Tunnel {
             apply_address(&iface, &net).with_context(|| format!("ifconfig {iface} {cidr}"))?;
         }
 
-        let bind_addr: SocketAddr = match params.endpoint {
-            SocketAddr::V4(_) => "0.0.0.0:0".parse().unwrap(),
-            SocketAddr::V6(_) => "[::]:0".parse().unwrap(),
+        let (net_transport, is_websocket): (Arc<dyn WgTransport>, bool) = match &params.transport {
+            TransportConfig::WebSocket {
+                relay_url,
+                sni_override,
+                auth_token,
+                ..
+            } => {
+                eprintln!("splitwg-helper: bringup: WebSocket transport to {relay_url}");
+                let ws = ws_transport::WsTransport::connect(
+                    relay_url,
+                    sni_override.as_deref(),
+                    auth_token.as_deref(),
+                )
+                .await
+                .with_context(|| format!("WebSocket connect to {relay_url}"))?;
+                (Arc::new(ws), true)
+            }
+            _ => {
+                let bind_addr: SocketAddr = match params.endpoint {
+                    SocketAddr::V4(_) => "0.0.0.0:0".parse().unwrap(),
+                    SocketAddr::V6(_) => "[::]:0".parse().unwrap(),
+                };
+                eprintln!("splitwg-helper: bringup: binding UDP socket ({bind_addr})");
+                let udp = UdpSocket::bind(bind_addr)
+                    .await
+                    .with_context(|| format!("bind UDP ({bind_addr})"))?;
+                udp.connect(params.endpoint)
+                    .await
+                    .with_context(|| format!("connect UDP ({})", params.endpoint))?;
+                eprintln!(
+                    "splitwg-helper: bringup: UDP connected to {}",
+                    params.endpoint
+                );
+                (Arc::new(transport::UdpTransport::new(udp)), false)
+            }
         };
-        eprintln!(
-            "splitwg-helper: bringup: binding UDP socket ({})",
-            bind_addr
-        );
-        let udp = UdpSocket::bind(bind_addr)
-            .await
-            .with_context(|| format!("bind UDP ({bind_addr})"))?;
-        udp.connect(params.endpoint)
-            .await
-            .with_context(|| format!("connect UDP ({})", params.endpoint))?;
-        eprintln!(
-            "splitwg-helper: bringup: UDP connected to {}",
-            params.endpoint
-        );
 
         // Gateway: prefer host-supplied value; fall back to `route get` so we
         // can still install endpoint bypass / exclude routes from the helper.
@@ -186,12 +204,15 @@ impl Tunnel {
 
         // 1. Endpoint bypass first — without this, 0.0.0.0/0 AllowedIPs would
         //    recurse WireGuard UDP through the utun we just created.
-        if let Some(gw) = gateway {
-            if let Err(e) = routes.apply_endpoint_bypass(params.endpoint.ip(), gw) {
-                eprintln!("splitwg-helper: endpoint bypass (non-fatal): {e}");
+        //    Skip for WebSocket: traffic goes via TCP to relay, no routing conflict.
+        if !is_websocket {
+            if let Some(gw) = gateway {
+                if let Err(e) = routes.apply_endpoint_bypass(params.endpoint.ip(), gw) {
+                    eprintln!("splitwg-helper: endpoint bypass (non-fatal): {e}");
+                }
+            } else {
+                eprintln!("splitwg-helper: no gateway known, skipping endpoint bypass");
             }
-        } else {
-            eprintln!("splitwg-helper: no gateway known, skipping endpoint bypass");
         }
 
         eprintln!(
@@ -320,7 +341,7 @@ impl Tunnel {
         Ok(Self {
             iface,
             device: Arc::new(device),
-            transport: Arc::new(transport::UdpTransport::new(udp)),
+            transport: net_transport,
             tunn: Arc::new(Mutex::new(tunn)),
             mtu: params.mtu,
             #[cfg(target_os = "macos")]
