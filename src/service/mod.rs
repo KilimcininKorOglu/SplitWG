@@ -1,10 +1,14 @@
-//! Windows Service infrastructure for splitwg-svc.
+//! Service infrastructure for splitwg-svc (Windows + Linux).
 //!
-//! Provides service lifecycle (install, run, uninstall) and named pipe IPC
-//! server. Only compiled on Windows.
+//! Windows: Windows Service + named pipe IPC.
+//! Linux: systemd service + Unix domain socket IPC.
 
+#[cfg(target_os = "windows")]
 mod installer;
+#[cfg(target_os = "windows")]
 mod pipe_server;
+#[cfg(target_os = "linux")]
+mod unix_server;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -14,7 +18,31 @@ use tokio::sync::{watch, Mutex};
 use crate::ipc::{Command, Event};
 use crate::runtime::Tunnel;
 
+#[cfg(target_os = "windows")]
 pub use installer::{install, is_installed, uninstall};
+
+#[cfg(target_os = "linux")]
+pub fn is_installed() -> bool {
+    std::process::Command::new("systemctl")
+        .args(["is-enabled", "--quiet", "splitwg"])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+#[cfg(target_os = "linux")]
+pub fn install() -> Result<(), String> {
+    Err("Linux: install the .deb/.rpm package to register the systemd service".to_string())
+}
+
+#[cfg(target_os = "linux")]
+pub fn uninstall() -> Result<(), String> {
+    std::process::Command::new("systemctl")
+        .args(["disable", "--now", "splitwg"])
+        .status()
+        .map_err(|e| format!("systemctl disable: {e}"))?;
+    Ok(())
+}
 
 type TunnelMap = Arc<Mutex<HashMap<String, TunnelState>>>;
 
@@ -96,7 +124,32 @@ fn win_service_main(_arguments: Vec<std::ffi::OsString>) {
         .unwrap();
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "linux")]
 fn service_main() {
-    eprintln!("splitwg-svc: service module is Windows-only");
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .unwrap();
+
+    rt.block_on(async {
+        crate::runtime::nft::preemptive_flush();
+
+        let (shutdown_tx, shutdown_rx) = watch::channel(false);
+        tokio::spawn(async move {
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .unwrap()
+                .recv()
+                .await;
+            let _ = shutdown_tx.send(true);
+        });
+
+        let tunnels: TunnelMap = Arc::new(Mutex::new(HashMap::new()));
+        unix_server::serve(tunnels, shutdown_rx).await;
+    });
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+fn service_main() {
+    eprintln!("splitwg-svc: service module is not available on this platform");
 }
