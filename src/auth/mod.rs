@@ -26,7 +26,7 @@ pub use hello_windows::authenticate;
 #[cfg(target_os = "linux")]
 mod setup_linux;
 #[cfg(target_os = "linux")]
-pub use setup_linux::{is_setup_done, run_first_time_setup, SUDOERS_PATH};
+pub use setup_linux::{is_setup_done, run_first_time_setup, SERVICE_UNIT_PATH};
 
 #[cfg(target_os = "linux")]
 mod polkit_linux;
