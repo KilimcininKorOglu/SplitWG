@@ -71,10 +71,11 @@ async fn ws_handler(
 
     let idle_timeout = Duration::from_secs(state.config.limits.idle_timeout_secs);
     let max_frame_bytes = state.config.limits.max_frame_bytes;
+    let padding = state.config.padding.as_ref().filter(|p| p.enabled).cloned();
 
     Ok(ws
         .on_upgrade(move |socket| {
-            session::handle_session(socket, target, idle_timeout, max_frame_bytes)
+            session::handle_session(socket, target, idle_timeout, max_frame_bytes, padding)
         })
         .into_response())
 }

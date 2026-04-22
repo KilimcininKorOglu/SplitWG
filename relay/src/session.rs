@@ -4,13 +4,48 @@ use std::time::Duration;
 
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};
+use rand::Rng;
 use tokio::net::UdpSocket;
+
+use crate::config::PaddingConfig;
+
+fn strip_padding(frame: &[u8]) -> Vec<u8> {
+    if frame.len() < 2 {
+        return frame.to_vec();
+    }
+    let payload_len = u16::from_be_bytes([frame[0], frame[1]]) as usize;
+    if payload_len == 0 || 2 + payload_len > frame.len() {
+        return frame.to_vec();
+    }
+    frame[2..2 + payload_len].to_vec()
+}
+
+fn apply_padding(payload: &[u8], config: &PaddingConfig) -> Vec<u8> {
+    let min = config.min_bytes as usize;
+    let max = config.max_bytes as usize;
+    let pad_len = if max > min {
+        rand::rng().random_range(min..=max)
+    } else {
+        min
+    };
+    let total = 2 + payload.len() + pad_len;
+    let mut frame = Vec::with_capacity(total);
+    frame.extend_from_slice(&(payload.len() as u16).to_be_bytes());
+    frame.extend_from_slice(payload);
+    if pad_len > 0 {
+        let mut pad = vec![0u8; pad_len];
+        rand::rng().fill(&mut pad[..]);
+        frame.extend_from_slice(&pad);
+    }
+    frame
+}
 
 pub async fn handle_session(
     ws: WebSocket,
     target: SocketAddr,
     idle_timeout: Duration,
     max_frame_bytes: usize,
+    padding: Option<PaddingConfig>,
 ) {
     let bind_addr = if target.is_ipv4() {
         "0.0.0.0:0"
@@ -31,13 +66,18 @@ pub async fn handle_session(
         return;
     }
 
-    log::info!("session started: target={target}");
+    log::info!(
+        "session started: target={target}, padding={}",
+        padding.is_some()
+    );
 
     let (mut ws_tx, mut ws_rx) = ws.split();
     let udp_rx = Arc::clone(&udp);
+    let padding_for_ws = padding.clone();
 
     let mut ws_to_udp = tokio::spawn({
         let udp = Arc::clone(&udp);
+        let pad_enabled = padding.is_some();
         async move {
             while let Ok(Some(msg)) = tokio::time::timeout(idle_timeout, ws_rx.next()).await {
                 match msg {
@@ -46,7 +86,12 @@ pub async fn handle_session(
                             log::warn!("oversize ws frame: {} bytes, closing", data.len());
                             break;
                         }
-                        if let Err(e) = udp.send(&data).await {
+                        let payload = if pad_enabled {
+                            strip_padding(&data)
+                        } else {
+                            data.to_vec()
+                        };
+                        if let Err(e) = udp.send(&payload).await {
                             log::error!("udp send failed: {e}");
                             break;
                         }
@@ -68,11 +113,11 @@ pub async fn handle_session(
         loop {
             match tokio::time::timeout(idle_timeout, udp_rx.recv(&mut buf)).await {
                 Ok(Ok(n)) => {
-                    if ws_tx
-                        .send(Message::Binary(buf[..n].to_vec().into()))
-                        .await
-                        .is_err()
-                    {
+                    let frame = match &padding_for_ws {
+                        Some(cfg) => apply_padding(&buf[..n], cfg),
+                        None => buf[..n].to_vec(),
+                    };
+                    if ws_tx.send(Message::Binary(frame.into())).await.is_err() {
                         break;
                     }
                 }

@@ -5,20 +5,28 @@
 //! drops it reconnects with exponential backoff and failover across
 //! relay URLs. The public `send`/`recv` go through mpsc channels and
 //! are oblivious to reconnections.
+//!
+//! Optional frame padding defeats DPI packet-size fingerprinting.
+//! Wire format when padding is enabled:
+//!   [2 bytes: payload_len (big-endian)] [payload] [random padding]
 
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
+use rand::Rng;
 use tokio::net::TcpStream;
 use tokio::sync::{mpsc, watch, Mutex};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::HeaderValue;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+
+use crate::ipc::PaddingConfig;
 
 use super::transport::WgTransport;
 
@@ -30,6 +38,7 @@ struct ConnectConfig {
     urls: Vec<String>,
     sni_override: Option<String>,
     auth_token: Option<String>,
+    padding: Option<PaddingConfig>,
 }
 
 pub struct WsTransport {
@@ -47,17 +56,53 @@ impl Drop for WsTransport {
 type WsSink = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 type WsStream = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 
+fn apply_padding(payload: &[u8], config: &Option<PaddingConfig>) -> Vec<u8> {
+    let Some(cfg) = config else {
+        return payload.to_vec();
+    };
+    let min = cfg.min_bytes as usize;
+    let max = cfg.max_bytes as usize;
+    let pad_len = if max > min {
+        rand::rng().random_range(min..=max)
+    } else {
+        min
+    };
+    let total = 2 + payload.len() + pad_len;
+    let mut frame = Vec::with_capacity(total);
+    frame.extend_from_slice(&(payload.len() as u16).to_be_bytes());
+    frame.extend_from_slice(payload);
+    if pad_len > 0 {
+        let mut pad = vec![0u8; pad_len];
+        rand::rng().fill(&mut pad[..]);
+        frame.extend_from_slice(&pad);
+    }
+    frame
+}
+
+fn strip_padding(frame: &[u8]) -> Vec<u8> {
+    if frame.len() < 2 {
+        return frame.to_vec();
+    }
+    let payload_len = u16::from_be_bytes([frame[0], frame[1]]) as usize;
+    if payload_len == 0 || 2 + payload_len > frame.len() {
+        return frame.to_vec();
+    }
+    frame[2..2 + payload_len].to_vec()
+}
+
 impl WsTransport {
     pub async fn connect(
         urls: Vec<String>,
         sni_override: Option<&str>,
         auth_token: Option<&str>,
+        padding: Option<PaddingConfig>,
     ) -> Result<Self> {
-        let config = ConnectConfig {
+        let config = Arc::new(ConnectConfig {
             urls,
             sni_override: sni_override.map(String::from),
             auth_token: auth_token.map(String::from),
-        };
+            padding,
+        });
 
         let (sink, source) = Self::inner_connect(&config.urls[0], &config).await?;
 
@@ -65,7 +110,7 @@ impl WsTransport {
         let (incoming_tx, incoming_rx) = mpsc::channel::<Vec<u8>>(256);
 
         let supervisor_handle = tokio::spawn(Self::supervisor_task(
-            config,
+            Arc::clone(&config),
             sink,
             source,
             outgoing_rx,
@@ -96,19 +141,24 @@ impl WsTransport {
         eprintln!("splitwg-helper: ws: connecting to {url}");
         let (ws_stream, _response) = tokio_tungstenite::connect_async(request).await?;
         eprintln!("splitwg-helper: ws: connected to {url}");
-
         Ok(ws_stream.split())
     }
 
     async fn supervisor_task(
-        config: ConnectConfig,
+        config: Arc<ConnectConfig>,
         initial_sink: WsSink,
         initial_source: WsStream,
         outgoing_rx: mpsc::Receiver<Vec<u8>>,
         incoming_tx: mpsc::Sender<Vec<u8>>,
     ) {
-        let mut outgoing_rx =
-            Self::run_session(initial_sink, initial_source, outgoing_rx, &incoming_tx).await;
+        let mut outgoing_rx = Self::run_session(
+            initial_sink,
+            initial_source,
+            outgoing_rx,
+            &incoming_tx,
+            &config.padding,
+        )
+        .await;
 
         let mut backoff = INITIAL_BACKOFF;
         let mut failed_cycles: u32 = 0;
@@ -119,8 +169,14 @@ impl WsTransport {
                     Ok((sink, source)) => {
                         backoff = INITIAL_BACKOFF;
                         failed_cycles = 0;
-                        outgoing_rx =
-                            Self::run_session(sink, source, outgoing_rx, &incoming_tx).await;
+                        outgoing_rx = Self::run_session(
+                            sink,
+                            source,
+                            outgoing_rx,
+                            &incoming_tx,
+                            &config.padding,
+                        )
+                        .await;
                         eprintln!("splitwg-helper: ws: connection lost, reconnecting...");
                         continue 'reconnect;
                     }
@@ -149,12 +205,24 @@ impl WsTransport {
         source: WsStream,
         outgoing_rx: mpsc::Receiver<Vec<u8>>,
         incoming_tx: &mpsc::Sender<Vec<u8>>,
+        padding: &Option<PaddingConfig>,
     ) -> mpsc::Receiver<Vec<u8>> {
         let (cancel_tx, cancel_rx) = watch::channel(false);
         let (pong_tx, pong_rx) = mpsc::channel::<Vec<u8>>(8);
 
-        let mut writer = tokio::spawn(Self::writer_task(sink, outgoing_rx, pong_rx, cancel_rx));
-        let mut reader = tokio::spawn(Self::reader_task(source, incoming_tx.clone(), pong_tx));
+        let mut writer = tokio::spawn(Self::writer_task(
+            sink,
+            outgoing_rx,
+            pong_rx,
+            cancel_rx,
+            padding.clone(),
+        ));
+        let mut reader = tokio::spawn(Self::reader_task(
+            source,
+            incoming_tx.clone(),
+            pong_tx,
+            padding.is_some(),
+        ));
 
         tokio::select! {
             result = &mut writer => {
@@ -173,6 +241,7 @@ impl WsTransport {
         mut outgoing_rx: mpsc::Receiver<Vec<u8>>,
         mut pong_rx: mpsc::Receiver<Vec<u8>>,
         mut cancel_rx: watch::Receiver<bool>,
+        padding: Option<PaddingConfig>,
     ) -> mpsc::Receiver<Vec<u8>> {
         loop {
             tokio::select! {
@@ -184,7 +253,8 @@ impl WsTransport {
                     }
                 }
                 Some(data) = outgoing_rx.recv() => {
-                    if sink.send(Message::Binary(data)).await.is_err() {
+                    let frame = apply_padding(&data, &padding);
+                    if sink.send(Message::Binary(frame)).await.is_err() {
                         break;
                     }
                 }
@@ -198,6 +268,7 @@ impl WsTransport {
         mut stream: WsStream,
         incoming_tx: mpsc::Sender<Vec<u8>>,
         pong_tx: mpsc::Sender<Vec<u8>>,
+        padding_enabled: bool,
     ) {
         while let Some(result) = stream.next().await {
             let msg = match result {
@@ -209,7 +280,12 @@ impl WsTransport {
             };
             match msg {
                 Message::Binary(data) => {
-                    let _ = incoming_tx.send(data).await;
+                    let payload = if padding_enabled {
+                        strip_padding(&data)
+                    } else {
+                        data
+                    };
+                    let _ = incoming_tx.send(payload).await;
                 }
                 Message::Ping(d) => {
                     let _ = pong_tx.try_send(d);
