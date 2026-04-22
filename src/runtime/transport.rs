@@ -7,7 +7,6 @@
 
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
 
 use anyhow::Result;
 use tokio::net::UdpSocket;
@@ -24,14 +23,12 @@ pub trait WgTransport: Send + Sync + 'static {
 }
 
 pub struct UdpTransport {
-    socket: Arc<UdpSocket>,
+    socket: UdpSocket,
 }
 
 impl UdpTransport {
     pub fn new(socket: UdpSocket) -> Self {
-        Self {
-            socket: Arc::new(socket),
-        }
+        Self { socket }
     }
 }
 

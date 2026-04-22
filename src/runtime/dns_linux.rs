@@ -72,8 +72,15 @@ impl Dns {
                 log::info!("dns: applied via resolvconf on {iface}");
             }
             Backend::Direct => {
-                let _ = std::fs::copy("/etc/resolv.conf", "/etc/resolv.conf.splitwg.bak");
-                let mut f = std::fs::File::create("/etc/resolv.conf")?;
+                let resolv = Path::new("/etc/resolv.conf");
+                if resolv.is_symlink() {
+                    anyhow::bail!(
+                        "/etc/resolv.conf is a symlink — direct modification unsafe. \
+                         Install systemd-resolved or resolvconf for safe DNS management."
+                    );
+                }
+                let _ = std::fs::copy(resolv, "/etc/resolv.conf.splitwg.bak");
+                let mut f = std::fs::File::create(resolv)?;
                 for server in servers {
                     writeln!(f, "nameserver {server}")?;
                 }

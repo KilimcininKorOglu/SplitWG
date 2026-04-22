@@ -1,6 +1,6 @@
 //! Linux privilege setup — checks if the splitwg systemd service is running.
 
-pub const SUDOERS_PATH: &str = "/etc/systemd/system/splitwg.service";
+pub const SERVICE_UNIT_PATH: &str = "/etc/systemd/system/splitwg.service";
 
 pub fn is_setup_done() -> bool {
     std::process::Command::new("systemctl")
