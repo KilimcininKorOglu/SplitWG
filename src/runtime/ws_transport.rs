@@ -42,6 +42,8 @@ impl WsTransport {
             );
         }
         if let Some(sni) = sni_override {
+            // NOTE: Host header alone may not override TLS SNI with rustls.
+            // Full SNI override requires a custom TLS connector (Phase 7).
             request
                 .headers_mut()
                 .insert("Host", HeaderValue::from_str(sni)?);
@@ -73,13 +75,14 @@ impl WsTransport {
     ) {
         loop {
             tokio::select! {
-                Some(data) = outgoing_rx.recv() => {
-                    if sink.send(Message::Binary(data)).await.is_err() {
+                biased;
+                Some(payload) = pong_rx.recv() => {
+                    if sink.send(Message::Pong(payload)).await.is_err() {
                         break;
                     }
                 }
-                Some(payload) = pong_rx.recv() => {
-                    if sink.send(Message::Pong(payload)).await.is_err() {
+                Some(data) = outgoing_rx.recv() => {
+                    if sink.send(Message::Binary(data)).await.is_err() {
                         break;
                     }
                 }
@@ -93,13 +96,20 @@ impl WsTransport {
         incoming_tx: mpsc::Sender<Vec<u8>>,
         pong_tx: mpsc::Sender<Vec<u8>>,
     ) {
-        while let Some(Ok(msg)) = stream.next().await {
+        while let Some(result) = stream.next().await {
+            let msg = match result {
+                Ok(m) => m,
+                Err(e) => {
+                    eprintln!("splitwg-helper: ws: reader error: {e}");
+                    break;
+                }
+            };
             match msg {
                 Message::Binary(data) => {
                     let _ = incoming_tx.send(data).await;
                 }
                 Message::Ping(d) => {
-                    let _ = pong_tx.send(d).await;
+                    let _ = pong_tx.try_send(d);
                 }
                 Message::Close(_) => break,
                 _ => {}
@@ -129,7 +139,14 @@ impl WgTransport for WsTransport {
                 .recv()
                 .await
                 .ok_or_else(|| anyhow!("WebSocket reader closed"))?;
-            let len = data.len().min(buf.len());
+            if data.len() > buf.len() {
+                anyhow::bail!(
+                    "WebSocket frame too large for buffer ({} > {})",
+                    data.len(),
+                    buf.len()
+                );
+            }
+            let len = data.len();
             buf[..len].copy_from_slice(&data[..len]);
             Ok(len)
         })
