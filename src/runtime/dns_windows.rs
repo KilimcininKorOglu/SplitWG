@@ -87,7 +87,7 @@ impl Drop for Dns {
                 .args([
                     "-NoProfile",
                     "-Command",
-                    "Get-DnsclientNrptRule | Remove-DnsclientNrptRule -Force",
+                    "Get-DnsclientNrptRule | Where-Object { $_.Namespace -eq '.' } | Remove-DnsclientNrptRule -Force",
                 ])
                 .status();
         }
