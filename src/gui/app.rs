@@ -93,6 +93,12 @@ pub struct App {
     /// query) when the user isn't looking.
     window_visible: bool,
     last_refresh: Instant,
+    /// Last window title pushed to the viewport — used to send
+    /// `ViewportCommand::Title` only when the string actually changes.
+    /// Sending it every frame would request an immediate repaint and spin
+    /// the render loop (egui `send_viewport_cmd_to` calls
+    /// `request_repaint_of`), pinning an idle tray app at ~120 fps.
+    last_title: Option<String>,
 
     /// Shared network state snapshot updated by the background monitor.
     /// The main thread doesn't read it directly (changes arrive via
@@ -257,6 +263,7 @@ impl App {
             rename_flow: None,
             window_visible: false,
             last_refresh: Instant::now() - Duration::from_secs(10),
+            last_title: None,
             net_state,
             net_rx,
             manual_override: HashSet::new(),
@@ -1272,9 +1279,16 @@ impl eframe::App for App {
 
         self.render_modals(ctx);
 
-        // Re-apply the viewport title each frame so a language change picks
-        // up the new string without closing the window.
-        ctx.send_viewport_cmd(egui::ViewportCommand::Title(i18n::t("gui.window.title")));
+        // Re-apply the viewport title only when it changed so a language
+        // change picks up the new string without closing the window.
+        // Unconditional per-frame sends are a perf trap: egui's
+        // `send_viewport_cmd` requests an immediate repaint, which would
+        // keep the event loop spinning at refresh rate even when idle.
+        let title = i18n::t("gui.window.title");
+        if self.last_title.as_deref() != Some(title.as_str()) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
+            self.last_title = Some(title);
+        }
     }
 }
 
