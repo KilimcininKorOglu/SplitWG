@@ -39,6 +39,18 @@ pub enum TunnelMode {
     Exclude,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PaddingConfig {
+    #[serde(default)]
+    pub min_bytes: u16,
+    #[serde(default = "default_padding_max")]
+    pub max_bytes: u16,
+}
+
+fn default_padding_max() -> u16 {
+    256
+}
+
 #[derive(Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum TransportConfig {
@@ -56,6 +68,8 @@ pub enum TransportConfig {
         headers: Option<HashMap<String, String>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         auth_token: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        padding: Option<PaddingConfig>,
     },
 }
 
@@ -70,6 +84,7 @@ impl std::fmt::Debug for TransportConfig {
                 path,
                 headers,
                 auth_token,
+                padding,
             } => f
                 .debug_struct("WebSocket")
                 .field("relay_url", relay_url)
@@ -78,6 +93,7 @@ impl std::fmt::Debug for TransportConfig {
                 .field("path", path)
                 .field("headers", headers)
                 .field("auth_token", &auth_token.as_ref().map(|_| "[REDACTED]"))
+                .field("padding", padding)
                 .finish(),
         }
     }
@@ -323,6 +339,7 @@ mod tests {
                 path: None,
                 headers: None,
                 auth_token: Some("secret-token".into()),
+                padding: None,
             },
         }));
         let json = serde_json::to_string(&cmd).unwrap();

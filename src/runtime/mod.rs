@@ -162,6 +162,7 @@ impl Tunnel {
                 relay_urls,
                 sni_override,
                 auth_token,
+                padding,
                 ..
             } => {
                 let mut urls = vec![relay_url.clone()];
@@ -173,6 +174,7 @@ impl Tunnel {
                     urls,
                     sni_override.as_deref(),
                     auth_token.as_deref(),
+                    padding.clone(),
                 )
                 .await
                 .with_context(|| format!("WebSocket connect to {relay_url}"))?;

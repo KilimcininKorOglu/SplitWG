@@ -15,6 +15,22 @@ pub struct RelayConfig {
     #[serde(default)]
     pub peers: PeersConfig,
     pub camouflage: Option<CamouflageConfig>,
+    #[serde(default)]
+    pub padding: Option<PaddingConfig>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct PaddingConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub min_bytes: u16,
+    #[serde(default = "default_padding_max")]
+    pub max_bytes: u16,
+}
+
+fn default_padding_max() -> u16 {
+    256
 }
 
 #[derive(Debug, Deserialize)]
