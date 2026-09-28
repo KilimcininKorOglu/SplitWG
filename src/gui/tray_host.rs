@@ -321,9 +321,12 @@ impl TrayHost {
             self.last_refresh = Instant::now();
         }
 
-        // Keep the update cadence even when the window is hidden, so slot
-        // labels and the tray icon stay fresh.
-        ctx.request_repaint_after(Duration::from_secs(1));
+        // Repaint floor while running in the tray: the labels/tooltip
+        // refresh on a 3 s cadence (above) and event sources (menu clicks,
+        // IPC stats, network changes) request immediate repaints, so a 3 s
+        // floor keeps behaviour identical to the old 1 s while cutting idle
+        // wakeups 3×. The watchdog (15 s gate) therefore fires ≤18 s.
+        ctx.request_repaint_after(Duration::from_secs(3));
         action
     }
 
