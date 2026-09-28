@@ -6,6 +6,10 @@ use std::io;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
+use std::sync::RwLock;
+use std::time::SystemTime;
+
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -358,28 +362,65 @@ pub fn settings_path() -> PathBuf {
     config_dir().join("settings.json")
 }
 
+/// Cache key: full path + mtime + size of `settings.json` at load time.
+/// `None` means the file was absent. Keying on the path keeps tests (which
+/// swap `$HOME`) and multi-user installs from sharing one entry.
+type SettingsStamp = Option<(PathBuf, Option<SystemTime>, u64)>;
+
+/// Memoised settings. See [`load_settings`] for why this exists.
+static SETTINGS_CACHE: Lazy<RwLock<Option<(SettingsStamp, Settings)>>> =
+    Lazy::new(|| RwLock::new(None));
+
 /// Loads global settings from `settings.json`. On any error (missing file,
 /// malformed JSON, permission issue) returns `Settings::default()` so the app
 /// always has a usable value. The safer default (hooks off) is enforced by
 /// `Settings::default()`.
+///
+/// The result is memoised on (path, mtime, size). `load_settings` runs on the
+/// per-frame UI path (three call sites in `gui::app`), and the previous
+/// un-memoised version did a full `read` + JSON parse every call — ~360 disk
+/// reads/second on a 120 Hz display, plus one duplicate warning line per call
+/// while `settings.json` was absent (403,933 identical warnings in an 11-day
+/// log). The stat check is sub-microsecond, and external edits to
+/// `settings.json` still take effect because mtime/size change.
 pub fn load_settings() -> Settings {
     let path = settings_path();
-    match fs::read(&path) {
-        Ok(data) => match serde_json::from_slice(&data) {
-            Ok(s) => s,
-            Err(e) => {
-                log::warn!(
-                    "splitwg: config: malformed settings.json, falling back to defaults: {}",
-                    e
-                );
-                Settings::default()
+    let stamp: SettingsStamp = fs::metadata(&path)
+        .ok()
+        .map(|m| (path.clone(), m.modified().ok(), m.len()));
+
+    if let Ok(guard) = SETTINGS_CACHE.read() {
+        if let Some((cached_stamp, cached)) = guard.as_ref() {
+            if *cached_stamp == stamp {
+                return cached.clone();
             }
-        },
-        Err(_) => {
+        }
+    }
+
+    let settings = match &stamp {
+        None => {
             log::warn!("splitwg: config: settings.json not found, using defaults");
             Settings::default()
         }
+        Some(_) => match fs::read(&path) {
+            Ok(data) => match serde_json::from_slice(&data) {
+                Ok(s) => s,
+                Err(e) => {
+                    log::warn!(
+                        "splitwg: config: malformed settings.json, falling back to defaults: {}",
+                        e
+                    );
+                    Settings::default()
+                }
+            },
+            Err(_) => Settings::default(),
+        },
+    };
+
+    if let Ok(mut guard) = SETTINGS_CACHE.write() {
+        *guard = Some((stamp, settings.clone()));
     }
+    settings
 }
 
 /// Persists global settings to `settings.json` with mode 0644. Creates the

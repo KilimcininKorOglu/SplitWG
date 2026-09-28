@@ -38,13 +38,16 @@ impl LogTail {
             let path: PathBuf = config::config_dir().join("splitwg.log");
             let mut last_pos: u64 = 0;
             loop {
-                if let Ok(mut f) = File::open(&path) {
-                    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
-                    if len < last_pos {
-                        // File was truncated or replaced — rewind.
-                        last_pos = 0;
-                    }
-                    if len > last_pos {
+                // stat() first — only open+read when the file actually grew.
+                // Previously every 1 s tick did open+fstat even when idle;
+                // with a quiet log that was 3600 wasted opens per hour.
+                let len = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+                if len < last_pos {
+                    // File was truncated, rotated, or replaced — rewind.
+                    last_pos = 0;
+                }
+                if len > last_pos {
+                    if let Ok(mut f) = File::open(&path) {
                         let _ = f.seek(SeekFrom::Start(last_pos));
                         let mut reader = BufReader::new(&mut f);
                         loop {

@@ -114,10 +114,11 @@ async fn run() -> i32 {
                                             _ = interval.tick() => {}
                                         }
                                         let (hs, tx, rx) = t2.stats().await;
-                                        eprintln!(
-                                            "splitwg-helper: stats: hs={:?} tx={} rx={}",
-                                            hs, tx, rx
-                                        );
+                                        // No stderr log line: the tray gets
+                                        // identical data via Event::Stats IPC
+                                        // below. Logging here produced
+                                        // ~43k lines/day (one per tick) that
+                                        // the host relays into splitwg.log.
                                         emit(&Event::Stats {
                                             tx_bytes: tx as u64,
                                             rx_bytes: rx as u64,

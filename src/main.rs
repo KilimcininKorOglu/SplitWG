@@ -10,8 +10,11 @@ use std::sync::Mutex;
 
 use splitwg::{config, gui, i18n};
 
-/// Minimal file logger that writes `splitwg: <level>: <msg>\n` lines to
-/// `<ConfigDir>/splitwg.log` and to stderr.
+/// Minimal file logger that writes `splitwg: <level>: <msg>` lines to
+/// `<ConfigDir>/splitwg.log`. Stderr mirroring is partial by default
+/// (WARN+ only, plus everything when `SPLITWG_LOG_STDERR=full`): mirroring
+/// every info line duplicated every write syscall and pushed the log to
+/// 67 MB in 11 days when combined with a chatty source.
 struct FileLogger {
     file: Mutex<Option<std::fs::File>>,
 }
@@ -40,7 +43,17 @@ impl log::Log for FileLogger {
                 let _ = f.write_all(line.as_bytes());
             }
         }
-        let _ = std::io::stderr().write_all(line.as_bytes());
+        // Mirror to stderr: always for WARN/ERROR (visible in terminal
+        // runs), for everything only when explicitly requested.
+        static MIRROR: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        let mirror_all = *MIRROR.get_or_init(|| {
+            std::env::var("SPLITWG_LOG_STDERR")
+                .map(|v| v.eq_ignore_ascii_case("full"))
+                .unwrap_or(false)
+        });
+        if mirror_all || record.level() >= log::Level::Warn {
+            let _ = std::io::stderr().write_all(line.as_bytes());
+        }
     }
 
     fn flush(&self) {
@@ -105,6 +118,19 @@ fn is_leap(y: i32) -> bool {
 fn init_file_logging() {
     let file = config::ensure_config_dir().ok().and_then(|_| {
         let path = config::config_dir().join("splitwg.log");
+        // Startup rotation: the log is append-only and never rotated at
+        // runtime, so an earlier runaway (a warning logged hundreds of times
+        // per second) grew it to 67 MB. Cap it here: everything over 10 MiB
+        // is moved to `splitwg.log.1` (replacing the previous one). The Logs
+        // tab follower seeks by offset and rewinds when the file shrinks, so
+        // a truncated/rotated file is picked up on its next 1 s tick.
+        if let Ok(meta) = std::fs::metadata(&path) {
+            if meta.len() > 10 * 1024 * 1024 {
+                let old = config::config_dir().join("splitwg.log.1");
+                let _ = std::fs::remove_file(&old);
+                let _ = std::fs::rename(&path, &old);
+            }
+        }
         let mut opts = OpenOptions::new();
         opts.create(true).append(true);
         #[cfg(unix)]

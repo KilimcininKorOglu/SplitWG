@@ -1,8 +1,9 @@
 //! System theme polling — applies macOS light/dark mode to egui.
 //!
-//! `dark-light` 1.x returns a cached mode that we re-check once per second
-//! and push into `egui::Context::set_visuals` only on change. Cheap — the
-//! comparison is a single enum match and `set_visuals` is idempotent.
+//! `dark-light` returns a cached mode that we re-check every 5 s and push
+//! into `egui::Context::set_visuals` only on change. A 1 s poll measured
+//! as idle wakeups for no user-visible benefit — theme switches are rare
+//! and still apply within 5 s.
 
 use std::time::{Duration, Instant};
 
@@ -24,7 +25,7 @@ impl ThemeState {
     /// Polls the system theme and applies it to the egui context when
     /// changed. Must be called on the UI thread from `App::update`.
     pub fn update(&mut self, ctx: &egui::Context) {
-        if self.last_check.elapsed() < Duration::from_secs(1) {
+        if self.last_check.elapsed() < Duration::from_secs(5) {
             return;
         }
         self.last_check = Instant::now();
